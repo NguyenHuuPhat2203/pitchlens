@@ -1,0 +1,13 @@
+# Default configuration for the football tracking pipeline.
+video:
+  source: "data/sample.mp4"        # Path to input video file.
+
+model:
+  player_detector: "yolo26s.pt"    # YOLO model for player detection.
+  detection_conf: 0.3              # Minimum confidence threshold.
+  device: 0                        # GPU device index (0 = first GPU).
+
+pipeline:
+  display: true                    # Show annotated video in window.
+  output_video: null               # Path for annotated output video (null = skip).
+  output_json: null                # Path for per-frame JSON output (null = skip).
