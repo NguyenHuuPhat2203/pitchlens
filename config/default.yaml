@@ -11,3 +11,20 @@ pipeline:
   display: true                    # Show annotated video in window.
   output_video: null               # Path for annotated output video (null = skip).
   output_json: null                # Path for per-frame JSON output (null = skip).
+  cpu_workers: 2                   # Thread pool size for CPU-bound tasks.
+
+team_classifier:
+  enabled: true                    # Whether to classify teams by jersey color.
+  fit_frames: 30                   # Number of frames to sample for k-means fitting.
+
+ball_detector:
+  enabled: true                    # Whether to detect and track the ball.
+  model: "yolo26s.pt"             # Model for ball detection.
+  max_lost_frames: 15              # Frames before declaring ball lost.
+
+shot_detector:
+  angle_threshold: 30.0            # Minimum velocity direction change (degrees).
+  accel_threshold: 50.0            # Minimum acceleration magnitude (px/s²).
+
+calibration:
+  enabled: true                    # Whether to use pitch calibration + speed.

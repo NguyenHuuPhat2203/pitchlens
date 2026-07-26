@@ -11,6 +11,12 @@ import supervision as sv
 from src.model.frame import ProcessedFrame
 from src.repository.output_writer import OutputWriter
 from src.repository.video_reader import VideoReader
+from src.service.ball_detector import BallDetector
+from src.service.ball_tracker import BallTracker
+from src.service.calibrator import Calibrator
+from src.service.shot_detector import ShotDetector
+from src.service.speed_estimator import SpeedEstimator
+from src.service.team_classifier import TeamClassifier
 from src.service.tracker import Tracker
 from src.view.renderer import Renderer
 
@@ -33,6 +39,7 @@ class Pipeline:
         """
         model_cfg = config["model"]
         pipeline_cfg = config.get("pipeline", {})
+        team_cfg = config.get("team_classifier", {})
         self._display = pipeline_cfg.get("display", True)
         self._cpu_workers = pipeline_cfg.get("cpu_workers", 2)
         self._output_video = pipeline_cfg.get("output_video")
@@ -45,11 +52,42 @@ class Pipeline:
         self._renderer = Renderer()
         self._writer = OutputWriter()
 
+        # Team classification (fitted lazily during the first N frames).
+        self._team_enabled = team_cfg.get("enabled", True)
+        self._team_clf = TeamClassifier() if self._team_enabled else None
+        self._team_crops: list[np.ndarray] = []
+        self._team_fitted = False
+        self._team_fit_frames = team_cfg.get("fit_frames", 30)
+
+        # Ball detection + tracking + shot detection.
+        ball_cfg = config.get("ball_detector", {})
+        shot_cfg = config.get("shot_detector", {})
+        self._ball_enabled = ball_cfg.get("enabled", True)
+        self._ball_detector = BallDetector(
+            model_name=ball_cfg.get("model", model_cfg["player_detector"]),
+            device=str(model_cfg.get("device", 0)),
+        ) if self._ball_enabled else None
+        self._ball_tracker = BallTracker(
+            max_lost_frames=ball_cfg.get("max_lost_frames", 15),
+        ) if self._ball_enabled else None
+        self._shot_detector = ShotDetector(
+            angle_threshold=shot_cfg.get("angle_threshold", 30.0),
+            accel_threshold=shot_cfg.get("accel_threshold", 50.0),
+        ) if self._ball_enabled else None
+        self._active_shot: tuple[int, float] | None = None  # (frame, speed)
+
+        # Pitch calibration + speed estimation.
+        calib_cfg = config.get("calibration", {})
+        self._calib_enabled = calib_cfg.get("enabled", True)
+        self._calibrator = Calibrator() if self._calib_enabled else None
+        self._speed_estimator = SpeedEstimator(fps=25.0)
+        self._prev_positions: dict[int, tuple[float, float]] = {}
+
     def run(self, source_path: str) -> list[np.ndarray]:
         """Run the pipeline on every frame, return annotated frames.
 
-        Saves output video and JSON if configured in the pipeline
-        section of the config file.
+        If calibration is enabled, collects 4 pitch-landmark clicks
+        on the first frame before processing begins.
 
         Args:
             source_path: Path to the input video file.
@@ -59,6 +97,11 @@ class Pipeline:
         """
         reader = VideoReader(source_path)
         frame_iter = iter(reader)
+
+        # --- Calibration click phase (before main loop) ---
+        if self._calib_enabled:
+            self._collect_calibration_clicks(frame_iter)
+
         annotated_frames: dict[int, np.ndarray] = {}
         processed_frames: list[ProcessedFrame] = []
         total_frames = 0
@@ -115,7 +158,7 @@ class Pipeline:
             return -1, None
 
     def _process_frame_image(self, image, frame_index):
-        """Track players on a frame and return annotated + data."""
+        """Track players, classify teams, and render annotations."""
         tracks = self._tracker.track(image)
         if not tracks:
             processed = ProcessedFrame(
@@ -124,16 +167,162 @@ class Pipeline:
             )
             return image.copy(), processed
 
+        # Team classification — collect crops during fit phase,
+        # predict labels after fitting.
+        labels: list[str] = []
+        if self._team_enabled:
+            if not self._team_fitted and frame_index < self._team_fit_frames:
+                for t in tracks:
+                    crop = self._crop_torso(image, t.bbox)
+                    if crop is not None:
+                        self._team_crops.append(crop)
+            elif not self._team_fitted:
+                if len(self._team_crops) >= 3:
+                    self._team_clf.fit(self._team_crops)
+                self._team_fitted = True
+
+            if self._team_fitted and self._team_clf._is_fitted:
+                for t in tracks:
+                    crop = self._crop_torso(image, t.bbox)
+                    t.team = (
+                        self._team_clf.predict(crop) if crop is not None
+                        else None
+                    )
+
+        for t in tracks:
+            team_str = f" {t.team}" if t.team else ""
+            speed_str = f" {t.speed_kmh:.0f}km/h" if t.speed_kmh else ""
+            labels.append(f"#{t.track_id}{team_str}{speed_str}")
+
         sv_detections = sv.Detections(
             xyxy=np.array([t.bbox for t in tracks]),
             confidence=np.array([t.confidence for t in tracks]),
             class_id=np.array([t.class_id for t in tracks]),
             tracker_id=np.array([t.track_id for t in tracks]),
         )
-        annotated = self._renderer.render_tracks(image, sv_detections)
+        annotated = self._renderer.render_tracks(image, sv_detections, labels)
+
+        # Speed estimation via homography.
+        if self._calib_enabled and self._calibrator.is_calibrated:
+            for t in tracks:
+                cx = (t.bbox[0] + t.bbox[2]) / 2
+                cy = (t.bbox[1] + t.bbox[3]) / 2
+                curr_pos = (cx, cy)
+                if t.track_id in self._prev_positions:
+                    prev = self._prev_positions[t.track_id]
+                    speed, direction = self._speed_estimator.estimate(
+                        prev, curr_pos, self._calibrator.homography,
+                    )
+                    t.speed_kmh = round(speed, 1)
+                    t.direction_deg = round(direction, 1)
+                    # Draw direction arrow.
+                    self._draw_arrow(annotated, curr_pos, direction)
+                self._prev_positions[t.track_id] = curr_pos
+
+        # Ball detection + tracking + shot detection.
+        ball_track = None
+        events = []
+        if self._ball_enabled:
+            ball_det = self._ball_detector.detect_ball(image)
+            ball_track = self._ball_tracker.update(ball_det)
+            shot = self._shot_detector.update(ball_track)
+            if shot is not None:
+                self._active_shot = (frame_index, shot.ball_speed_kmh)
+                events.append(shot)
+
+        # Flash "SHOT!" overlay.
+        if self._active_shot is not None:
+            shot_frame, shot_speed = self._active_shot
+            if frame_index - shot_frame < 25:  # ~1 second at 25 fps
+                cv2.putText(
+                    annotated,
+                    f"SHOT! {shot_speed} km/h",
+                    (20, 60),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1.2,
+                    (0, 100, 255),
+                    3,
+                )
+            else:
+                self._active_shot = None
+
         processed = ProcessedFrame(
             frame_number=frame_index,
             timestamp=0.0,
             players=list(tracks),
+            ball=ball_track,
+            events=events,
         )
         return annotated, processed
+
+    @staticmethod
+    def _crop_torso(image, bbox):
+        """Extract the torso region from a player bounding box."""
+        x1, y1, x2, y2 = [int(v) for v in bbox]
+        x1, x2 = max(0, x1), min(image.shape[1], x2)
+        y1, y2 = max(0, y1), min(image.shape[0], y2)
+        if x2 <= x1 or y2 <= y1:
+            return None
+        torso_y1 = y1 + (y2 - y1) // 2  # lower half = torso
+        if torso_y1 >= y2:
+            return None
+        return image[torso_y1:y2, x1:x2]
+
+    # ------------------------------------------------------------------
+    # Calibration helpers
+    # ------------------------------------------------------------------
+
+    def _collect_calibration_clicks(self, frame_iter):
+        """Show the first frame and collect 4 pitch-landmark clicks."""
+        # Read the first frame synchronously (before the I/O pool starts).
+        try:
+            first = next(frame_iter)
+        except StopIteration:
+            return
+
+        clicks: list[tuple[int, int]] = []
+        display = first.image.copy()
+
+        def _on_click(event, x, y, flags, param):
+            if event == cv2.EVENT_LBUTTONDOWN:
+                clicks.append((x, y))
+
+        cv2.imshow("Football Tracker", display)
+        cv2.setMouseCallback("Football Tracker", _on_click)
+        cv2.displayStatusBar(
+            "Football Tracker",
+            "Click 4 pitch corners: top-left, top-right, bottom-right, bottom-left. Q=skip.",
+        )
+
+        while len(clicks) < 4:
+            key = cv2.waitKey(100) & 0xFF
+            if key == ord("q"):
+                break
+            # Redraw with collected clicks.
+            display = first.image.copy()
+            for i, (cx, cy) in enumerate(clicks):
+                cv2.circle(display, (cx, cy), 5, (0, 255, 0), -1)
+                cv2.putText(
+                    display, str(i + 1), (cx + 8, cy - 4),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2,
+                )
+            cv2.imshow("Football Tracker", display)
+
+        cv2.setMouseCallback("Football Tracker", lambda *a: None)
+        cv2.displayStatusBar("Football Tracker", "")
+
+        if len(clicks) >= 4:
+            image_pts = np.array(clicks[:4], dtype=np.float32)
+            pitch_pts = np.array(
+                [[0, 0], [105, 0], [105, 68], [0, 68]], dtype=np.float32,
+            )
+            self._calibrator.fit(image_pts, pitch_pts)
+
+    @staticmethod
+    def _draw_arrow(image, origin, direction_deg, length=30, color=(0, 255, 0)):
+        """Draw a direction arrow on the image."""
+        rad = np.radians(direction_deg)
+        dx = int(length * np.cos(rad))
+        dy = int(length * np.sin(rad))
+        ox, oy = int(origin[0]), int(origin[1])
+        cv2.arrowedLine(image, (ox, oy), (ox + dx, oy + dy), color, 2)

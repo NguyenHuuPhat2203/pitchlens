@@ -33,6 +33,9 @@ class Serializer:
                     "bbox": list(p.bbox),
                     "class_id": p.class_id,
                     "confidence": p.confidence,
+                    "team": p.team,
+                    "speed_kmh": p.speed_kmh,
+                    "direction_deg": p.direction_deg,
                 }
                 for p in frame.players
             ],

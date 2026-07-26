@@ -24,13 +24,17 @@ class Renderer:
         )
 
     def render_tracks(
-        self, frame: np.ndarray, tracks: sv.Detections
+        self,
+        frame: np.ndarray,
+        tracks: sv.Detections,
+        labels: list[str] | None = None,
     ) -> np.ndarray:
         """Draw bounding boxes, track IDs, and movement trails.
 
         Args:
             frame: BGR image array (height, width, 3).
             tracks: Supervision Detections with ``tracker_id`` field.
+            labels: Optional custom labels to show instead of track IDs.
 
         Returns:
             A new annotated BGR image array.
@@ -41,10 +45,8 @@ class Renderer:
         annotated = self._box_annotator.annotate(
             scene=annotated, detections=tracks
         )
-        # Build labels from tracker IDs.
-        labels = [
-            f"#{tid}" for tid in tracks.tracker_id.astype(int)
-        ]
+        if labels is None:
+            labels = [f"#{tid}" for tid in tracks.tracker_id.astype(int)]
         annotated = self._label_annotator.annotate(
             scene=annotated, detections=tracks, labels=labels
         )

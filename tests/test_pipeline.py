@@ -31,6 +31,12 @@ model:
 pipeline:
   display: false
   cpu_workers: 2
+
+team_classifier:
+  enabled: false
+
+calibration:
+  enabled: false
     """)
 
 
