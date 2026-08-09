@@ -153,6 +153,18 @@ class Pipeline:
     # Internal helpers
     # ------------------------------------------------------------------
 
+    def process_frame(self, image: np.ndarray, frame_index: int):
+        """Public entry point for external callers (e.g. web adapter).
+
+        Args:
+            image: BGR image array.
+            frame_index: Zero-based frame number.
+
+        Returns:
+            (annotated_image, processed_frame) tuple.
+        """
+        return self._process_frame_image(image, frame_index)
+
     @staticmethod
     def _read(frame_iter):
         """Read the next frame.  Runs in the I/O thread."""

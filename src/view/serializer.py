@@ -1,18 +1,15 @@
-"""Serializes ProcessedFrame objects to JSON-safe dicts with envelope."""
+"""Serializes ProcessedFrame objects to JSON-safe dicts per ML rules §09."""
 
 from __future__ import annotations
-
-import uuid
-from datetime import datetime, timezone
 
 from src.model.frame import ProcessedFrame
 
 
 class Serializer:
-    """Converts pipeline output to the JSON envelope format.
+    """Converts pipeline output to the ML API item schema.
 
-    Follows RULES.md: every response is wrapped in
-    ``{"success": true, "data": {...}, "meta": {...}}``.
+    Follows rules/ml_en/09-api-serving.md: every item is
+    ``{"status": "success", "result": {...}}``.
     """
 
     def serialize(self, frame: ProcessedFrame) -> dict:
@@ -43,23 +40,30 @@ class Serializer:
             "events": [],
         }
 
-    def serialize_all(self, frames: list[ProcessedFrame]) -> dict:
-        """Serialize a list of ProcessedFrames into an envelope.
+    def serialize_item(self, frame: ProcessedFrame) -> dict:
+        """Wrap a single frame in the ML API item schema.
+
+        Args:
+            frame: A ProcessedFrame from the pipeline.
+
+        Returns:
+            ``{"status": "success", "result": {...}}``.
+        """
+        return {
+            "status": "success",
+            "result": self.serialize(frame),
+        }
+
+    def serialize_all(self, frames: list[ProcessedFrame]) -> list[dict]:
+        """Serialize frames as an array of items per ML rules §09.
+
+        Batch responses are arrays preserving input order.
+        Each item has its own ``status`` field.
 
         Args:
             frames: All processed frames from a pipeline run.
 
         Returns:
-            Envelope dict with ``success``, ``data``, and ``meta`` keys.
+            List of ``{"status": "success", "result": {...}}`` dicts.
         """
-        return {
-            "success": True,
-            "data": {
-                "frames": [self.serialize(f) for f in frames],
-            },
-            "meta": {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "request_id": str(uuid.uuid4()),
-                "total_frames": len(frames),
-            },
-        }
+        return [self.serialize_item(f) for f in frames]

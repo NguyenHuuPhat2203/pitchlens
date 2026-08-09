@@ -52,8 +52,8 @@ class TestOutputWriter:
             cap.release()
             assert frame_count == 5
 
-    def test_write_json_uses_envelope_format(self) -> None:
-        """write_json wraps data in {success, data, meta} per RULES.md."""
+    def test_write_json_uses_item_schema(self) -> None:
+        """write_json outputs array of {status, result} per ML rules §09."""
         with tempfile.TemporaryDirectory() as tmp:
             output_path = str(Path(tmp) / "output.json")
             processed = _make_processed_frames(3)
@@ -63,13 +63,13 @@ class TestOutputWriter:
             with open(output_path, encoding="utf-8") as fh:
                 doc = json.load(fh)
 
-            assert doc["success"] is True
-            assert "data" in doc
-            assert "meta" in doc
-            assert len(doc["data"]["frames"]) == 3
+            assert isinstance(doc, list)
+            assert len(doc) == 3
+            assert doc[0]["status"] == "success"
+            assert "result" in doc[0]
 
     def test_json_frame_has_player_data(self) -> None:
-        """Each frame in the JSON contains player track data."""
+        """Each frame result in the JSON contains player track data."""
         with tempfile.TemporaryDirectory() as tmp:
             output_path = str(Path(tmp) / "output.json")
             processed = _make_processed_frames(1)
@@ -79,7 +79,7 @@ class TestOutputWriter:
             with open(output_path, encoding="utf-8") as fh:
                 doc = json.load(fh)
 
-            frame_data = doc["data"]["frames"][0]
+            frame_data = doc[0]["result"]
             assert frame_data["frame_number"] == 0
             assert len(frame_data["players"]) == 1
             assert frame_data["players"][0]["track_id"] == 1
