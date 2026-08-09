@@ -14,6 +14,7 @@ from src.serve.pipeline.video_reader import VideoReader
 from src.backbone.ball_detector import BallDetector
 from src.serve.pipeline.ball_tracker import BallTracker
 from src.serve.pipeline.calibrator import Calibrator
+from src.serve.pipeline.synloc_calibrator import SynLocCalibrator
 from src.serve.pipeline.shot_detector import ShotDetector
 from src.serve.pipeline.speed_estimator import SpeedEstimator
 from src.features.team_classifier import TeamClassifier
@@ -82,7 +83,9 @@ class Pipeline:
         # Pitch calibration + speed estimation.
         calib_cfg = config.calibration
         self._calib_enabled = calib_cfg.enabled
-        self._calibrator = Calibrator() if self._calib_enabled else None
+        self._calibrator = SynLocCalibrator() if self._calib_enabled else None
+        if self._calibrator and calib_cfg.camera_dir:
+            self._calibrator.load_camera(calib_cfg.camera_dir)
         self._speed_estimator = SpeedEstimator(fps=25.0)
         self._position_history: dict[int, list[tuple[float, float]]] = {}
         self._speed_window = calib_cfg.speed_window
@@ -104,7 +107,7 @@ class Pipeline:
         frame_iter = iter(reader)
 
         # --- Calibration click phase (before main loop) ---
-        if self._calib_enabled:
+        if self._calib_enabled and not self._calibrator.has_camera:
             self._collect_calibration_clicks(frame_iter)
 
         annotated_frames: dict[int, np.ndarray] = {}

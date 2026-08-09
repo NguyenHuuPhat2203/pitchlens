@@ -29,3 +29,4 @@ shot_detector:
 calibration:
   enabled: true                    # Whether to use pitch calibration + speed.
   speed_window: 12                 # Frames to smooth speed/direction over.
+  camera_dir: null                 # SynLoc camera model directory (null=manual clicks).

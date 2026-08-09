@@ -60,7 +60,8 @@ class CalibrationConfig(BaseModel):
     """Pitch calibration and speed estimation settings."""
 
     enabled: bool = True
-    speed_window: PositiveInt = 5
+    speed_window: PositiveInt = 12
+    camera_dir: Optional[str] = None
 
 
 class AppConfig(BaseModel):
