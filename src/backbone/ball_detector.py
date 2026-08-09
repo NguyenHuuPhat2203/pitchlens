@@ -6,6 +6,7 @@ import numpy as np
 from ultralytics import YOLO
 
 from src.model.detection import Detection
+from src.serve.pipeline.gpu_utils import safe_predict
 
 
 class BallDetector:
@@ -37,13 +38,16 @@ class BallDetector:
         Returns:
             A Detection if a sports ball is found, or None.
         """
-        results = self._model(
+        results = safe_predict(
+            self._model,
             frame,
             device=self._device,
             classes=[self._SPORTS_BALL_CLASS],
             verbose=False,
         )
         best: Detection | None = None
+        if results is None:
+            return None
         for result in results:
             if result.boxes is None:
                 continue

@@ -4,6 +4,7 @@ import numpy as np
 from ultralytics import YOLO
 
 from src.model.track import PlayerTrack
+from src.serve.pipeline.gpu_utils import safe_predict
 
 
 class Tracker:
@@ -40,7 +41,8 @@ class Tracker:
         Returns:
             List of PlayerTrack objects with persistent track IDs.
         """
-        results = self._model.track(
+        results = safe_predict(
+            self._model.track,
             frame,
             device=self._device,
             tracker=self._tracker_config,
@@ -49,6 +51,8 @@ class Tracker:
             persist=True,  # keep IDs across track() calls
         )
         tracks: list[PlayerTrack] = []
+        if results is None:
+            return tracks
         for result in results:
             if result.boxes is None:
                 continue
