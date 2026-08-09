@@ -85,7 +85,8 @@ class Pipeline:
         self._calib_enabled = calib_cfg.get("enabled", True)
         self._calibrator = Calibrator() if self._calib_enabled else None
         self._speed_estimator = SpeedEstimator(fps=25.0)
-        self._prev_positions: dict[int, tuple[float, float]] = {}
+        self._position_history: dict[int, list[tuple[float, float]]] = {}
+        self._speed_window = calib_cfg.get("speed_window", 5)  # frames to smooth over
 
     def run(self, source_path: str) -> list[np.ndarray]:
         """Run the pipeline on every frame, return annotated frames.
@@ -206,22 +207,26 @@ class Pipeline:
         )
         annotated = self._renderer.render_tracks(image, sv_detections, labels)
 
-        # Speed estimation via homography.
+        # Speed estimation via homography (smoothed over N frames).
         if self._calib_enabled and self._calibrator.is_calibrated:
             for t in tracks:
                 cx = (t.bbox[0] + t.bbox[2]) / 2
                 cy = (t.bbox[1] + t.bbox[3]) / 2
                 curr_pos = (cx, cy)
-                if t.track_id in self._prev_positions:
-                    prev = self._prev_positions[t.track_id]
+
+                hist = self._position_history.setdefault(t.track_id, [])
+                hist.append(curr_pos)
+                if len(hist) > self._speed_window:
+                    hist.pop(0)
+
+                if len(hist) >= 2:
+                    prev = hist[0]  # position N frames ago
                     speed, direction = self._speed_estimator.estimate(
                         prev, curr_pos, self._calibrator.homography,
                     )
                     t.speed_kmh = round(speed, 1)
                     t.direction_deg = round(direction, 1)
-                    # Draw direction arrow.
                     self._draw_arrow(annotated, curr_pos, direction)
-                self._prev_positions[t.track_id] = curr_pos
 
         # Ball detection + tracking + shot detection.
         ball_track = None
