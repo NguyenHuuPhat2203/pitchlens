@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 import pytest
 
-from src.repository.video_reader import VideoReader
+from src.serve.pipeline.video_reader import VideoReader
 
 
 def _make_test_video(path: str, frame_count: int = 30, fps: float = 25.0) -> None:

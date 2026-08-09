@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import pytest
 
-from src.service.team_classifier import TeamClassifier
+from src.features.team_classifier import TeamClassifier
 
 
 def _make_jersey_patch(hue: int, sat: int = 200, val: int = 200) -> np.ndarray:

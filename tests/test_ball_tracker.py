@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from src.model.detection import Detection
-from src.service.ball_tracker import BallTracker
+from src.serve.pipeline.ball_tracker import BallTracker
 
 
 def _make_detection(x: float, y: float, w: float = 10, h: float = 10) -> Detection:

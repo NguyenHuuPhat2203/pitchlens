@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from src.model.detection import Detection
-from src.service.ball_detector import BallDetector
+from src.backbone.ball_detector import BallDetector
 
 
 class TestBallDetector:

@@ -10,7 +10,7 @@ import pytest
 
 from src.model.frame import ProcessedFrame
 from src.model.track import PlayerTrack
-from src.repository.output_writer import OutputWriter
+from src.serve.artifacts.output_writer import OutputWriter
 
 
 def _make_processed_frames(count: int = 3) -> list[ProcessedFrame]:

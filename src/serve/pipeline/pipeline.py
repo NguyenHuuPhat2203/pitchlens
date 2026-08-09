@@ -10,16 +10,16 @@ import supervision as sv
 import torch
 
 from src.model.frame import ProcessedFrame
-from src.repository.output_writer import OutputWriter
-from src.repository.video_reader import VideoReader
-from src.service.ball_detector import BallDetector
-from src.service.ball_tracker import BallTracker
-from src.service.calibrator import Calibrator
-from src.service.shot_detector import ShotDetector
-from src.service.speed_estimator import SpeedEstimator
-from src.service.team_classifier import TeamClassifier
-from src.service.tracker import Tracker
-from src.view.renderer import Renderer
+from src.serve.artifacts.output_writer import OutputWriter
+from src.serve.pipeline.video_reader import VideoReader
+from src.backbone.ball_detector import BallDetector
+from src.serve.pipeline.ball_tracker import BallTracker
+from src.serve.pipeline.calibrator import Calibrator
+from src.serve.pipeline.shot_detector import ShotDetector
+from src.serve.pipeline.speed_estimator import SpeedEstimator
+from src.features.team_classifier import TeamClassifier
+from src.serve.pipeline.tracker import Tracker
+from src.serve.pipeline.renderer import Renderer
 
 
 class Pipeline:

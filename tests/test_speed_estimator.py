@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from src.service.calibrator import Calibrator
-from src.service.speed_estimator import SpeedEstimator
+from src.serve.pipeline.calibrator import Calibrator
+from src.serve.pipeline.speed_estimator import SpeedEstimator
 
 
 class TestSpeedEstimator:

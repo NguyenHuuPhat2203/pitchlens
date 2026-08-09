@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 import yaml
 
-from src.controller.pipeline import Pipeline
+from src.serve.pipeline.pipeline import Pipeline
 
 
 def _make_test_video(path: str, frame_count: int = 5) -> None:

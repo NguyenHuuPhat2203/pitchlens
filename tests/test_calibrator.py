@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from src.service.calibrator import Calibrator
+from src.serve.pipeline.calibrator import Calibrator
 
 
 class TestCalibrator:

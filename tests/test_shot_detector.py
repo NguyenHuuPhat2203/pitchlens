@@ -5,7 +5,7 @@ import math
 import pytest
 
 from src.model.track import BallTrack
-from src.service.shot_detector import ShotDetector
+from src.serve.pipeline.shot_detector import ShotDetector
 
 
 def _make_ball(

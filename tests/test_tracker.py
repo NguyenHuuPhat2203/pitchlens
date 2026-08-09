@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from src.model.track import PlayerTrack
-from src.service.tracker import Tracker
+from src.serve.pipeline.tracker import Tracker
 
 
 def _make_synthetic_frame(width: int = 640, height: int = 480) -> np.ndarray:

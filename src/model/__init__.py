@@ -1,1 +1,1 @@
-"""Domain data structures for the football tracking pipeline."""
+"""Domain data structures shared across tiers."""

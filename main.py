@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from src.controller.pipeline import Pipeline
+from src.serve.pipeline.pipeline import Pipeline
 
 CONFIG_PATH = Path(__file__).resolve().parent / "config" / "default.yaml"
 

@@ -17,9 +17,9 @@ import yaml
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 
-from src.controller.pipeline import Pipeline
-from src.repository.video_reader import VideoReader
-from src.view.serializer import Serializer
+from src.serve.pipeline.pipeline import Pipeline
+from src.serve.pipeline.video_reader import VideoReader
+from src.serve.artifacts.serializer import Serializer
 
 CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "default.yaml"
 

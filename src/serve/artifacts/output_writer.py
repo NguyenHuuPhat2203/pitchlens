@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 
 from src.model.frame import ProcessedFrame
-from src.view.serializer import Serializer
+from src.serve.artifacts.serializer import Serializer
 
 
 class OutputWriter:

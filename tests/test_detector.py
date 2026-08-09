@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from src.model.detection import Detection
-from src.service.detector import Detector
+from src.backbone.detector import Detector
 
 
 class TestDetector:
