@@ -1,4 +1,4 @@
-"""Shared structured logger — JSON lines to stdout per ML rules §08."""
+"""Shared structured logger — JSON lines to stdout"""
 
 from __future__ import annotations
 

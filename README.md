@@ -1,179 +1,172 @@
-# Football Tracker ⚽
+# Football Tracker
 
-Real-time football match tracking using computer vision. Detects players, the ball, and referees; tracks movement with persistent identities; classifies teams by jersey color; computes real-world speed via pitch homography; and detects shot events from ball acceleration.
+Real-time football match tracking with computer vision. Detects players
+and the ball, tracks movement with persistent identities, classifies teams
+by jersey color, estimates speed, and detects shot events.
 
-Built with [Ultralytics YOLO26](https://docs.ultralytics.com/) + [Supervision](https://supervision.roboflow.com/).
+**Demo:** paste a YouTube URL → watch annotated stream frame-by-frame.
 
-## Demo
+Built with [Ultralytics YOLO26](https://docs.ultralytics.com/),
+[Supervision](https://supervision.roboflow.com/), and FastAPI.
 
+## Quick Start
+
+```bash
+# Install
+pip install -r requirements.txt
+
+# Run on a local video
+python main.py
 ```
-python -m src
-```
 
-1. Click 4 pitch corners on the first frame (top-left, top-right, bottom-right, bottom-left)
-2. Press Q to skip calibration (speed won't be computed)
-3. The pipeline runs — press Q to quit anytime
+1. Click 4 pitch corners on the first frame (or press Q to skip calibration)
+2. Pipeline runs — annotated frames appear in an OpenCV window
+3. Press Q to quit
 
 ## Features
 
 | Feature | Status |
 |---------|--------|
-| Player detection + tracking (OC-SORT) | ✅ |
-| Team classification (HSV k-means) | ✅ |
-| Ball detection + Kalman tracking | ✅ |
-| Shot event detection (acceleration heuristic) | ✅ |
-| Pitch calibration (semi-auto, 4 clicks) | ✅ |
-| Real-world speed + direction arrows | ✅ |
-| Annotated video output (.mp4) | ✅ |
-| Per-frame JSON output (RULES.md envelope) | ✅ |
-
-## Installation
-
-```bash
-# Create venv
-python -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-**Requirements:** Python ≥ 3.10, CUDA-capable GPU recommended (works on CPU, slower).
-
-## Usage
-
-### Quick start
-
-1. Drop a football video in `data/sample.mp4` (or edit `config/default.yaml`)
-2. Run the pipeline:
-
-```bash
-python -m src
-```
-
-### Configuration
-
-Edit `config/default.yaml`:
-
-```yaml
-video:
-  source: "data/sample.mp4"
-
-model:
-  player_detector: "yolo26s.pt"   # YOLO model
-  detection_conf: 0.3
-  device: 0                        # GPU device (0 = first GPU, "cpu")
-
-pipeline:
-  display: true                    # Show live preview
-  output_video: "output/match.mp4" # Save annotated video (null = skip)
-  output_json: "output/match.json" # Save per-frame data (null = skip)
-  cpu_workers: 2
-
-team_classifier:
-  enabled: true
-  fit_frames: 30                   # Frames to sample for k-means
-
-ball_detector:
-  enabled: true
-  max_lost_frames: 15              # Frames before declaring ball lost
-
-shot_detector:
-  angle_threshold: 30.0            # Min velocity direction change (deg)
-  accel_threshold: 50.0            # Min acceleration magnitude (px/s²)
-
-calibration:
-  enabled: true                    # Enable click-to-calibrate + speed
-```
-
-### Output format
-
-Per-frame JSON follows the RULES.md envelope convention:
-
-```json
-{
-  "success": true,
-  "data": {
-    "frames": [
-      {
-        "frame_number": 0,
-        "timestamp": 0.0,
-        "players": [
-          {
-            "track_id": 3,
-            "bbox": [120.0, 80.0, 180.0, 240.0],
-            "class_id": 0,
-            "confidence": 0.92,
-            "team": "A",
-            "speed_kmh": 22.5,
-            "direction_deg": 45.0
-          }
-        ],
-        "ball": {
-          "track_id": 0,
-          "centroid": [320.0, 200.0],
-          "velocity": [10.0, -2.0],
-          "state": "in_play"
-        },
-        "events": []
-      }
-    ]
-  },
-  "meta": {
-    "timestamp": "2025-07-26T12:00:00+00:00",
-    "request_id": "...",
-    "total_frames": 1500
-  }
-}
-```
+| Player detection + tracking (OC-SORT) | Done |
+| Team classification (HSV k-means) | Done |
+| Ball detection + Kalman tracking | Done |
+| Shot event detection | Done |
+| Pitch calibration (4-click, desktop only) | Done |
+| Direction arrows (always on) | Done |
+| Speed overlay (km/h, calibration only) | Done |
+| Annotated video output (.mp4) | Done |
+| JSON output (item schema) | Done |
+| FastAPI backend + WebSocket streaming | Done |
+| Browser demo (paste YouTube URL) | Done |
 
 ## Architecture
 
 ```
-Video → Detect (YOLO26s) → Track (OC-SORT) → Classify Teams (HSV)
-                                    ↓
-                            Ball Detect → Ball Track (Kalman) → Shot Detect
-                                    ↓
-                          Calibrate (Homography) → Speed + Direction
-                                    ↓
-                              Render + Output (.mp4 + .json)
+YouTube URL → download → Pipeline → WebSocket JPEG stream → browser
+                                  ↓
+                            JSON result array
 ```
+
+Pipeline tiers (hybrid layout):
 
 ```
 src/
+├── backbone/       YOLO wrappers (detector, ball_detector)
+├── features/       Team classifier (HSV k-means)
 ├── model/          Data classes (Detection, Track, Frame, Event)
-├── repository/     I/O (VideoReader, OutputWriter)
-├── service/        Business logic (8 services)
-├── controller/     Pipeline orchestrator (ThreadPool)
-└── view/           Renderer (Supervision) + Serializer
+├── serve/
+│   ├── pipeline/   Inference engine (tracker, ball_tracker,
+│   │               calibrator, speed, shot, renderer, video_reader)
+│   ├── artifacts/  Serializer (item schema), OutputWriter
+│   └── adapt/      FastAPI + WebSocket (app, schemas)
+├── training/       Train-only (datasets, conversion)
+├── config.py       Pydantic config models
+└── logger.py       Structured JSON logging
+```
+
+## Usage
+
+### Desktop (local video)
+
+```bash
+python main.py
+```
+
+Place a video at `data/sample.mp4` or edit `config/default.yaml`.
+
+### Web API
+
+```bash
+uvicorn src.serve.adapt.app:create_app --factory --port 8000
+```
+
+Then open `demo/index.html`, paste a YouTube URL, and click Analyze.
+
+**Endpoints:**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/v1/analyze` | Accept `{"url": "..."}`, returns `session_id` |
+| WS | `/v1/stream/{id}` | Binary JPEG frames, then final JSON array |
+
+### Training
+
+Open `notebooks/football_tracker_training.ipynb` in Jupyter or Colab.
+Covers dataset download, MOT→YOLO conversion, player fine-tuning,
+ball detector training, and pipeline evaluation.
+
+## Configuration
+
+`config/default.yaml` is a YAML file validated against a Pydantic model
+at startup. Key sections:
+
+```yaml
+model:
+  player_detector: "yolo26s.pt"
+  device: "auto"                  # CUDA if available, else CPU
+
+pipeline:
+  display: true                   # Show OpenCV window
+  output_video: null              # Save annotated .mp4
+  output_json: null               # Save per-frame JSON
+
+team_classifier:
+  enabled: true                   # Auto-fit on first 30 frames
+
+ball_detector:
+  enabled: true
+
+shot_detector:
+  angle_threshold: 30.0
+  accel_threshold: 50.0
+
+calibration:
+  enabled: true                   # Click-to-calibrate
+  speed_window: 5                 # Frames for speed smoothing
+```
+
+## Output Format
+
+Item schema (array of per-frame items):
+
+```json
+[
+  {
+    "status": "success",
+    "result": {
+      "frame_number": 0,
+      "players": [
+        {
+          "track_id": 3,
+          "bbox": [120.0, 80.0, 180.0, 240.0],
+          "team": "A",
+          "speed_kmh": 22.5,
+          "direction_deg": 45.0
+        }
+      ],
+      "ball": { "centroid": [320.0, 200.0], "state": "in_play" },
+      "events": []
+    }
+  }
+]
 ```
 
 ## Development
 
-### Run tests
-
 ```bash
-pytest tests/ -v
+# Run tests
+pytest tests/ -v          # 40 tests
+
+# Lint
+ruff check src/ tests/ main.py
+
+# Pre-commit
+pre-commit install
 ```
 
-40 tests covering all services and pipeline integration.
+## Docs
 
-### Train custom models
-
-Notebooks in `notebooks/`:
-- `01_train_player_detector.ipynb` — fine-tune YOLO for football
-- `02_train_ball_detector.ipynb` — specialized ball detection
-- `03_finetune_team_classifier.ipynb` — compare HSV vs OSNet
-- `04_evaluate_pipeline.ipynb` — GS-HOTA evaluation
-
-### Domain glossary
-
-See [CONTEXT.md](CONTEXT.md) for the project's ubiquitous language.
-
-### Architecture decisions
-
-See [docs/adr/](docs/adr/) for recorded architectural decisions.
-
-## License
-
-MIT
+- [Glossary](CONTEXT.md)
+- [ADR](docs/adr/0001-pipeline-architecture-yolo26s-ocsort.md)
+- [Research](docs/research-real-time-football-tracking.md)
+- [Implementation plan](docs/implementation-plan.md)

@@ -99,7 +99,7 @@ def create_app() -> FastAPI:
             await ws.close()
             return
 
-        # Start pipeline in a background thread (ML rules: no heavy compute on event loop).
+        # Start pipeline in a background thread .
         loop = asyncio.get_event_loop()
         executor = ThreadPoolExecutor(max_workers=1)
 
@@ -148,3 +148,6 @@ def create_app() -> FastAPI:
             executor.shutdown(wait=False)
 
     return app
+
+
+app = create_app()

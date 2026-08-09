@@ -52,7 +52,7 @@ class TestOutputWriter:
             assert frame_count == 5
 
     def test_write_json_uses_item_schema(self) -> None:
-        """write_json outputs array of {status, result} per ML rules §09."""
+        """write_json outputs array of {status, result}"""
         with tempfile.TemporaryDirectory() as tmp:
             output_path = str(Path(tmp) / "output.json")
             processed = _make_processed_frames(3)

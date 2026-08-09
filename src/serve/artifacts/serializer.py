@@ -1,4 +1,4 @@
-"""Serializes ProcessedFrame objects to JSON-safe dicts per ML rules §09."""
+"""Serializes ProcessedFrame objects to JSON-safe dicts"""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from src.model.frame import ProcessedFrame
 class Serializer:
     """Converts pipeline output to the ML API item schema.
 
-    Follows rules/ml_en/09-api-serving.md: every item is
+    Follows the item schema: every item is
     ``{"status": "success", "result": {...}}``.
     """
 
@@ -55,7 +55,7 @@ class Serializer:
         }
 
     def serialize_all(self, frames: list[ProcessedFrame]) -> list[dict]:
-        """Serialize frames as an array of items per ML rules §09.
+        """Serialize frames as an array of items
 
         Batch responses are arrays preserving input order.
         Each item has its own ``status`` field.

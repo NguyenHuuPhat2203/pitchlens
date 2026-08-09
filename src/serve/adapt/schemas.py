@@ -1,4 +1,4 @@
-"""API request/response DTOs — Pydantic models per ML rules §02a."""
+"""API request/response DTOs — Pydantic models"""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ class ErrorDetail(BaseModel):
 
 
 class ErrorResponse(BaseModel):
-    """Standard error response per ML rules §09."""
+    """Standard error response"""
 
     status: str = "error"
     error: ErrorDetail

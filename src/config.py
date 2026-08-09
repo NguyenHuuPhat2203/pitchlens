@@ -1,4 +1,4 @@
-"""Pydantic config models — validated at startup per ML rules §03."""
+"""Pydantic config models — validated at startup."""
 
 from __future__ import annotations
 

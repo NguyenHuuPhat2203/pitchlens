@@ -99,8 +99,14 @@ A controlled ball transfer from one player to a teammate. Not implemented in Pha
 
 **Pipeline**:
 The end-to-end processing chain: Input → Detect → Track → Classify Teams →
-Calibrate Pitch → Compute Speed → Detect Events → Output.
+Calibrate Pitch → Compute Speed → Detect Events → Render → Output.
 _Avoid_: Workflow, chain, process
+
+**Tier**:
+An architectural layer. Backbone (YOLO wrappers), Features (transforms),
+Serve (inference pipeline, artifacts, HTTP adapters), Training (dataset prep).
+Tiers follow Clean Architecture: inner tiers never import outer ones.
+_Avoid_: Layer, module, package
 
 **Frame**:
 A single image extracted from the video source. Input granularity to the pipeline.

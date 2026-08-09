@@ -1,4 +1,4 @@
-"""Safe GPU inference helpers — OOM handling per ML rules §05."""
+"""Safe GPU inference helpers — OOM handling"""
 
 from __future__ import annotations
 
