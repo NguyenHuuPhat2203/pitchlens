@@ -4,21 +4,20 @@
 tracker_type: ocsort
 
 # First-association threshold for high-confidence detections.
-track_high_thresh: 0.3
+track_high_thresh: 0.15
 
 # Second-association threshold for low-confidence detections
 # (only when use_byte is True).
 track_low_thresh: 0.1
 
 # Minimum confidence to initialise a new track.
-new_track_thresh: 0.4
+new_track_thresh: 0.3
 
-# Frames to keep a lost track alive — raised for football to
-# bridge occlusions during tackles and crowded set pieces.
-track_buffer: 60
+# Frames to keep a lost track alive.
+track_buffer: 90
 
 # IoU threshold for matching detections to tracks.
-match_thresh: 0.7
+match_thresh: 0.5
 
 # Fuse confidence scores with IoU distances.
 fuse_score: True

@@ -47,6 +47,8 @@ class Tracker:
             device=self._device,
             tracker=self._tracker_config,
             classes=[0],  # person only
+            iou=0.3,  # allow more overlap between detections
+            imgsz=960,  # higher resolution for small players
             verbose=False,
             persist=True,  # keep IDs across track() calls
         )

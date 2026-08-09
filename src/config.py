@@ -38,7 +38,7 @@ class TeamClassifierConfig(BaseModel):
     """HSV team classifier settings."""
 
     enabled: bool = True
-    fit_frames: PositiveInt = 30
+    fit_frames: PositiveInt = 50
 
 
 class BallDetectorConfig(BaseModel):

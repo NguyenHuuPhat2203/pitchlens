@@ -17,6 +17,7 @@ class Renderer:
             text_color=sv.Color(255, 255, 255),
             color=sv.Color(220, 40, 40),
             text_padding=4,
+            text_position=sv.Position.TOP_LEFT,
         )
         self._trace_annotator = sv.TraceAnnotator(
             thickness=2,

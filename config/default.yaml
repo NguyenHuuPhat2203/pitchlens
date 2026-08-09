@@ -15,7 +15,7 @@ pipeline:
 
 team_classifier:
   enabled: true                    # Whether to classify teams by jersey color.
-  fit_frames: 30                   # Number of frames to sample for k-means fitting.
+  fit_frames: 50                   # Number of frames to sample for k-means fitting.
 
 ball_detector:
   enabled: true                    # Whether to detect and track the ball.
@@ -28,4 +28,4 @@ shot_detector:
 
 calibration:
   enabled: true                    # Whether to use pitch calibration + speed.
-  speed_window: 5                  # Frames to smooth speed/direction over.
+  speed_window: 12                 # Frames to smooth speed/direction over.

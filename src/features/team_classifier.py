@@ -99,11 +99,13 @@ class TeamClassifier:
     def _extract_features(self, crop: np.ndarray) -> np.ndarray:
         """Extract a normalized hue histogram from a BGR crop."""
         hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
-        # Focus on the lower third (torso, not face/head).
-        torso = hsv[crop.shape[0] // 2:, :, :]
-        hist = cv2.calcHist(
-            [torso], [0], None, [self._HUE_BINS], [0, 180],
+        # Hue + saturation histogram for jersey color.
+        hist_h = cv2.calcHist(
+            [hsv], [0], None, [self._HUE_BINS], [0, 180],
         )
-        hist = hist.flatten().astype(np.float64)
+        hist_s = cv2.calcHist(
+            [hsv], [1], None, [16], [0, 256],
+        )
+        hist = np.concatenate([hist_h.flatten(), hist_s.flatten()]).astype(np.float64)
         hist /= hist.sum() + 1e-9
         return hist

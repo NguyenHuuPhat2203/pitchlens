@@ -85,7 +85,8 @@ class Pipeline:
         self._calibrator = Calibrator() if self._calib_enabled else None
         self._speed_estimator = SpeedEstimator(fps=25.0)
         self._position_history: dict[int, list[tuple[float, float]]] = {}
-        self._speed_window = calib_cfg.speed_window  # frames to smooth over
+        self._speed_window = calib_cfg.speed_window
+        self._last_direction: dict[int, float] = {}  # frames to smooth over
 
     def run(self, source_path: str) -> list[np.ndarray]:
         """Run the pipeline on every frame, return annotated frames.
@@ -230,7 +231,14 @@ class Pipeline:
                 prev = hist[0]
                 dx = curr_pos[0] - prev[0]
                 dy = curr_pos[1] - prev[1]
-                direction = float(np.degrees(np.arctan2(dy, dx)))
+                dist = float(np.hypot(dx, dy))
+
+                if dist >= 10:
+                    direction = float(np.degrees(np.arctan2(dy, dx)))
+                    self._last_direction[t.track_id] = direction
+                else:
+                    direction = self._last_direction.get(t.track_id, 0.0)
+
                 t.direction_deg = round(direction, 1)
                 self._draw_arrow(annotated, curr_pos, direction)
 
@@ -278,16 +286,19 @@ class Pipeline:
 
     @staticmethod
     def _crop_torso(image, bbox):
-        """Extract the torso region from a player bounding box."""
+        """Extract the jersey region from a player bounding box."""
         x1, y1, x2, y2 = [int(v) for v in bbox]
         x1, x2 = max(0, x1), min(image.shape[1], x2)
         y1, y2 = max(0, y1), min(image.shape[0], y2)
         if x2 <= x1 or y2 <= y1:
             return None
-        torso_y1 = y1 + (y2 - y1) // 2  # lower half = torso
-        if torso_y1 >= y2:
+        # Middle third — the jersey area, avoiding head and legs.
+        h = y2 - y1
+        jersey_y1 = y1 + h // 3
+        jersey_y2 = y1 + 2 * h // 3
+        if jersey_y2 <= jersey_y1:
             return None
-        return image[torso_y1:y2, x1:x2]
+        return image[jersey_y1:jersey_y2, x1:x2]
 
     # ------------------------------------------------------------------
     # Calibration helpers
