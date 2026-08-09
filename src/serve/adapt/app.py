@@ -11,6 +11,7 @@ from pathlib import Path
 
 import cv2
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.config import load_config
@@ -35,6 +36,12 @@ def create_app() -> FastAPI:
         A FastAPI application instance.
     """
     app = FastAPI(title="Football Tracker API")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     @app.post("/v1/analyze")
     async def analyze_video(req: AnalyzeRequest):

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Football Tracker Demo</title>
+<style>
+  body { font-family: system-ui; max-width: 900px; margin: 20px auto; padding: 0 16px; background: #111; color: #eee; }
+  input, button { font-size: 16px; padding: 8px 12px; border-radius: 6px; border: 1px solid #444; background: #222; color: #eee; }
+  input { width: 100%; box-sizing: border-box; }
+  button { background: #2563eb; border-color: #2563eb; cursor: pointer; margin-top: 8px; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  #status { margin: 12px 0; font-size: 14px; color: #9ca3af; }
+  #canvas { width: 100%; border-radius: 8px; border: 1px solid #333; display: none; }
+  #stats { font-size: 13px; color: #6b7280; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<h1>Football Tracker Demo</h1>
+
+<input id="url" type="text" placeholder="Paste YouTube URL...">
+<button id="start" onclick="start()">Analyze</button>
+<div id="status"></div>
+<canvas id="canvas"></canvas>
+<div id="stats"></div>
+
+<script>
+const API = "http://localhost:8000";
+let frameCount = 0;
+
+async function start() {
+  const url = document.getElementById("url").value.trim();
+  if (!url) return;
+
+  const btn = document.getElementById("start");
+  btn.disabled = true;
+  document.getElementById("status").textContent = "Downloading video...";
+
+  const res = await fetch(`${API}/v1/analyze`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  });
+  const data = await res.json();
+
+  if (data.status !== "success") {
+    document.getElementById("status").textContent = "Error: " + JSON.stringify(data.error);
+    btn.disabled = false;
+    return;
+  }
+
+  const sid = data.result.session_id;
+  document.getElementById("status").textContent =
+    `Streaming ${data.result.total_frames} frames...`;
+
+  const ws = new WebSocket(`ws://localhost:8000/v1/stream/${sid}`);
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  canvas.style.display = "block";
+
+  ws.binaryType = "arraybuffer";
+
+  ws.onmessage = (event) => {
+    if (event.data instanceof ArrayBuffer) {
+      const blob = new Blob([event.data], { type: "image/jpeg" });
+      const img = new Image();
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        frameCount++;
+        document.getElementById("stats").textContent = `Frame ${frameCount}`;
+      };
+      img.src = URL.createObjectURL(blob);
+    } else {
+      // Final JSON result
+      const items = JSON.parse(event.data);
+      const players = items[items.length - 1]?.result?.players || [];
+      document.getElementById("status").textContent =
+        `Done. ${frameCount} frames, ${players.length} players in last frame.`;
+      btn.disabled = false;
+      ws.close();
+    }
+  };
+
+  ws.onerror = () => {
+    document.getElementById("status").textContent = "WebSocket error.";
+    btn.disabled = false;
+  };
+}
+</script>
+</body>
+</html>
