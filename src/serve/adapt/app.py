@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
-import json
 import subprocess
 import tempfile
 import uuid
@@ -12,16 +10,19 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import cv2
-import numpy as np
-import yaml
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 
+from src.config import load_config
 from src.serve.pipeline.pipeline import Pipeline
 from src.serve.pipeline.video_reader import VideoReader
 from src.serve.artifacts.serializer import Serializer
+from src.serve.adapt.schemas import (
+    AnalyzeRequest, AnalyzeResponse, AnalyzeResult,
+    ErrorDetail, ErrorResponse,
+)
 
-CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "default.yaml"
+CONFIG_PATH = Path(__file__).resolve().parent.parent.parent.parent / "config" / "default.yaml"
 
 _sessions: dict[str, dict] = {}
 _serializer = Serializer()
@@ -36,15 +37,9 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Football Tracker API")
 
     @app.post("/v1/analyze")
-    async def analyze_video(payload: dict):
-        """Download a YouTube video and return a session for streaming.
-
-        Expects: ``{"url": "https://youtube.com/watch?v=..."}``
-        Returns: ``{"status": "success", "result": {"session_id": "..."}}``
-        """
-        url = payload.get("url", "")
-        if not url:
-            raise HTTPException(400, detail="Missing 'url' field")
+    async def analyze_video(req: AnalyzeRequest):
+        """Download a YouTube video and return a session for streaming."""
+        url = req.url
 
         tmp_dir = tempfile.mkdtemp(prefix="football_")
         video_path = Path(tmp_dir) / "input.mp4"
@@ -73,13 +68,12 @@ def create_app() -> FastAPI:
             "results": [],
         }
 
-        return JSONResponse({
-            "status": "success",
-            "result": {
-                "session_id": session_id,
-                "total_frames": total_frames,
-            },
-        })
+        return JSONResponse(AnalyzeResponse(
+            result=AnalyzeResult(
+                session_id=session_id,
+                total_frames=total_frames,
+            ),
+        ).model_dump())
 
     @app.websocket("/v1/stream/{session_id}")
     async def stream_frames(ws: WebSocket, session_id: str):
@@ -92,7 +86,9 @@ def create_app() -> FastAPI:
 
         session = _sessions.get(session_id)
         if session is None:
-            await ws.send_json({"status": "error", "error": {"code": "UNKNOWN_SESSION"}})
+            await ws.send_json(ErrorResponse(
+                error=ErrorDetail(code="UNKNOWN_SESSION", message="Session not found"),
+            ).model_dump())
             await ws.close()
             return
 
@@ -101,10 +97,9 @@ def create_app() -> FastAPI:
         executor = ThreadPoolExecutor(max_workers=1)
 
         def _run_pipeline():
-            with open(CONFIG_PATH, encoding="utf-8") as fh:
-                config = yaml.safe_load(fh)
-            config["pipeline"]["display"] = False
-            config["calibration"]["enabled"] = False
+            config = load_config(CONFIG_PATH)
+            config.pipeline.display = False
+            config.calibration.enabled = False
 
             pipeline = Pipeline(config)
             reader = VideoReader(session["video_path"])

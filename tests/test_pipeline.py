@@ -5,7 +5,6 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-import yaml
 
 from src.serve.pipeline.pipeline import Pipeline
 
@@ -20,24 +19,17 @@ def _make_test_video(path: str, frame_count: int = 5) -> None:
     writer.release()
 
 
-def _make_config(video_path: str) -> dict:
-    """Return minimal config for testing."""
-    return yaml.safe_load(f"""
-model:
-  player_detector: "yolo26s.pt"
-  detection_conf: 0.3
-  device: "cpu"
-
-pipeline:
-  display: false
-  cpu_workers: 2
-
-team_classifier:
-  enabled: false
-
-calibration:
-  enabled: false
-    """)
+def _make_config(video_path: str):
+    """Return minimal AppConfig for testing."""
+    from src.config import AppConfig, CalibrationConfig, ModelConfig
+    from src.config import PipelineConfig, TeamClassifierConfig, VideoConfig
+    return AppConfig(
+        video=VideoConfig(source=video_path),
+        model=ModelConfig(player_detector="yolo26s.pt", device="cpu"),
+        pipeline=PipelineConfig(display=False, cpu_workers=2),
+        team_classifier=TeamClassifierConfig(enabled=False),
+        calibration=CalibrationConfig(enabled=False),
+    )
 
 
 class TestPipeline:

@@ -1,6 +1,5 @@
 """Tests for BallTracker — Kalman-filtered ball trajectory."""
 
-import numpy as np
 import pytest
 
 from src.model.detection import Detection

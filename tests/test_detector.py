@@ -3,7 +3,6 @@
 import numpy as np
 import pytest
 
-from src.model.detection import Detection
 from src.backbone.detector import Detector
 
 

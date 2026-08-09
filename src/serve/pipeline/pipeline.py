@@ -7,7 +7,6 @@ from concurrent.futures import ThreadPoolExecutor
 import cv2
 import numpy as np
 import supervision as sv
-import torch
 
 from src.model.frame import ProcessedFrame
 from src.serve.artifacts.output_writer import OutputWriter
@@ -32,24 +31,24 @@ class Pipeline:
     while frame N is being processed on the GPU.
     """
 
-    def __init__(self, config: dict) -> None:
+    def __init__(self, config) -> None:
         """Wire up services from configuration.
 
         Args:
-            config: Parsed YAML configuration dictionary.
+            config: AppConfig from src.config (Pydantic model).
         """
-        model_cfg = config["model"]
-        pipeline_cfg = config.get("pipeline", {})
-        team_cfg = config.get("team_classifier", {})
-        self._display = pipeline_cfg.get("display", True)
-        self._cpu_workers = pipeline_cfg.get("cpu_workers", 2)
-        self._output_video = pipeline_cfg.get("output_video")
-        self._output_json = pipeline_cfg.get("output_json")
+        model_cfg = config.model
+        pipeline_cfg = config.pipeline
+        team_cfg = config.team_classifier
+        self._display = pipeline_cfg.display
+        self._cpu_workers = pipeline_cfg.cpu_workers
+        self._output_video = pipeline_cfg.output_video
+        self._output_json = pipeline_cfg.output_json
 
-        device = self._resolve_device(model_cfg.get("device", "auto"))
+        device = model_cfg.device
 
         self._tracker = Tracker(
-            model_name=model_cfg["player_detector"],
+            model_name=model_cfg.player_detector,
             tracker_config="ocsort.yaml",
             device=device,
         )
@@ -57,36 +56,36 @@ class Pipeline:
         self._writer = OutputWriter()
 
         # Team classification (fitted lazily during the first N frames).
-        self._team_enabled = team_cfg.get("enabled", True)
+        self._team_enabled = team_cfg.enabled
         self._team_clf = TeamClassifier() if self._team_enabled else None
         self._team_crops: list[np.ndarray] = []
         self._team_fitted = False
-        self._team_fit_frames = team_cfg.get("fit_frames", 30)
+        self._team_fit_frames = team_cfg.fit_frames
 
         # Ball detection + tracking + shot detection.
-        ball_cfg = config.get("ball_detector", {})
-        shot_cfg = config.get("shot_detector", {})
-        self._ball_enabled = ball_cfg.get("enabled", True)
+        ball_cfg = config.ball_detector
+        shot_cfg = config.shot_detector
+        self._ball_enabled = ball_cfg.enabled
         self._ball_detector = BallDetector(
-            model_name=ball_cfg.get("model", model_cfg["player_detector"]),
+            model_name=ball_cfg.model,
             device=device,
         ) if self._ball_enabled else None
         self._ball_tracker = BallTracker(
-            max_lost_frames=ball_cfg.get("max_lost_frames", 15),
+            max_lost_frames=ball_cfg.max_lost_frames,
         ) if self._ball_enabled else None
         self._shot_detector = ShotDetector(
-            angle_threshold=shot_cfg.get("angle_threshold", 30.0),
-            accel_threshold=shot_cfg.get("accel_threshold", 50.0),
+            angle_threshold=shot_cfg.angle_threshold,
+            accel_threshold=shot_cfg.accel_threshold,
         ) if self._ball_enabled else None
-        self._active_shot: tuple[int, float] | None = None  # (frame, speed)
+        self._active_shot: tuple[int, float] | None = None
 
         # Pitch calibration + speed estimation.
-        calib_cfg = config.get("calibration", {})
-        self._calib_enabled = calib_cfg.get("enabled", True)
+        calib_cfg = config.calibration
+        self._calib_enabled = calib_cfg.enabled
         self._calibrator = Calibrator() if self._calib_enabled else None
         self._speed_estimator = SpeedEstimator(fps=25.0)
         self._position_history: dict[int, list[tuple[float, float]]] = {}
-        self._speed_window = calib_cfg.get("speed_window", 5)  # frames to smooth over
+        self._speed_window = calib_cfg.speed_window  # frames to smooth over
 
     def run(self, source_path: str) -> list[np.ndarray]:
         """Run the pipeline on every frame, return annotated frames.
@@ -111,10 +110,7 @@ class Pipeline:
         processed_frames: list[ProcessedFrame] = []
         total_frames = 0
 
-        with (
-            ThreadPoolExecutor(max_workers=1) as io_pool,
-            ThreadPoolExecutor(max_workers=self._cpu_workers) as cpu_pool,
-        ):
+        with ThreadPoolExecutor(max_workers=1) as io_pool:
             read_future = io_pool.submit(self._read, frame_iter)
 
             while read_future is not None:
@@ -347,10 +343,3 @@ class Pipeline:
         dy = int(length * np.sin(rad))
         ox, oy = int(origin[0]), int(origin[1])
         cv2.arrowedLine(image, (ox, oy), (ox + dx, oy + dy), color, 2)
-
-    @staticmethod
-    def _resolve_device(device_cfg):
-        """Resolve 'auto' to CUDA if available, otherwise CPU."""
-        if device_cfg == "auto":
-            return "0" if torch.cuda.is_available() else "cpu"
-        return str(device_cfg)

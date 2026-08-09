@@ -1,8 +1,6 @@
 """Tests for ShotDetector — acceleration-based shot event detection."""
 
-import math
 
-import pytest
 
 from src.model.track import BallTrack
 from src.serve.pipeline.shot_detector import ShotDetector
