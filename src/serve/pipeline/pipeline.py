@@ -215,26 +215,30 @@ class Pipeline:
         )
         annotated = self._renderer.render_tracks(image, sv_detections, labels)
 
-        # Speed estimation via homography (smoothed over N frames).
-        if self._calib_enabled and self._calibrator.is_calibrated:
-            for t in tracks:
-                cx = (t.bbox[0] + t.bbox[2]) / 2
-                cy = (t.bbox[1] + t.bbox[3]) / 2
-                curr_pos = (cx, cy)
+        # Direction arrows (always on, pixel-space) + speed (homography only).
+        for t in tracks:
+            cx = (t.bbox[0] + t.bbox[2]) / 2
+            cy = (t.bbox[1] + t.bbox[3]) / 2
+            curr_pos = (cx, cy)
 
-                hist = self._position_history.setdefault(t.track_id, [])
-                hist.append(curr_pos)
-                if len(hist) > self._speed_window:
-                    hist.pop(0)
+            hist = self._position_history.setdefault(t.track_id, [])
+            hist.append(curr_pos)
+            if len(hist) > self._speed_window:
+                hist.pop(0)
 
-                if len(hist) >= 2:
-                    prev = hist[0]  # position N frames ago
-                    speed, direction = self._speed_estimator.estimate(
+            if len(hist) >= 2:
+                prev = hist[0]
+                dx = curr_pos[0] - prev[0]
+                dy = curr_pos[1] - prev[1]
+                direction = float(np.degrees(np.arctan2(dy, dx)))
+                t.direction_deg = round(direction, 1)
+                self._draw_arrow(annotated, curr_pos, direction)
+
+                if self._calib_enabled and self._calibrator.is_calibrated:
+                    speed, _ = self._speed_estimator.estimate(
                         prev, curr_pos, self._calibrator.homography,
                     )
                     t.speed_kmh = round(speed, 1)
-                    t.direction_deg = round(direction, 1)
-                    self._draw_arrow(annotated, curr_pos, direction)
 
         # Ball detection + tracking + shot detection.
         ball_track = None
