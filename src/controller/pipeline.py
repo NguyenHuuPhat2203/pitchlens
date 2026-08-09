@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 import cv2
 import numpy as np
 import supervision as sv
+import torch
 
 from src.model.frame import ProcessedFrame
 from src.repository.output_writer import OutputWriter
@@ -44,10 +45,13 @@ class Pipeline:
         self._cpu_workers = pipeline_cfg.get("cpu_workers", 2)
         self._output_video = pipeline_cfg.get("output_video")
         self._output_json = pipeline_cfg.get("output_json")
+
+        device = self._resolve_device(model_cfg.get("device", "auto"))
+
         self._tracker = Tracker(
             model_name=model_cfg["player_detector"],
             tracker_config="ocsort.yaml",
-            device=str(model_cfg.get("device", 0)),
+            device=device,
         )
         self._renderer = Renderer()
         self._writer = OutputWriter()
@@ -65,7 +69,7 @@ class Pipeline:
         self._ball_enabled = ball_cfg.get("enabled", True)
         self._ball_detector = BallDetector(
             model_name=ball_cfg.get("model", model_cfg["player_detector"]),
-            device=str(model_cfg.get("device", 0)),
+            device=device,
         ) if self._ball_enabled else None
         self._ball_tracker = BallTracker(
             max_lost_frames=ball_cfg.get("max_lost_frames", 15),
@@ -274,7 +278,6 @@ class Pipeline:
 
     def _collect_calibration_clicks(self, frame_iter):
         """Show the first frame and collect 4 pitch-landmark clicks."""
-        # Read the first frame synchronously (before the I/O pool starts).
         try:
             first = next(frame_iter)
         except StopIteration:
@@ -289,17 +292,19 @@ class Pipeline:
 
         cv2.imshow("Football Tracker", display)
         cv2.setMouseCallback("Football Tracker", _on_click)
-        cv2.displayStatusBar(
-            "Football Tracker",
-            "Click 4 pitch corners: top-left, top-right, bottom-right, bottom-left. Q=skip.",
-        )
 
         while len(clicks) < 4:
             key = cv2.waitKey(100) & 0xFF
             if key == ord("q"):
                 break
-            # Redraw with collected clicks.
             display = first.image.copy()
+            # Instructions overlay.
+            cv2.putText(
+                display,
+                "Click 4 corners: TL, TR, BR, BL. Q=skip",
+                (10, 28),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2,
+            )
             for i, (cx, cy) in enumerate(clicks):
                 cv2.circle(display, (cx, cy), 5, (0, 255, 0), -1)
                 cv2.putText(
@@ -309,7 +314,6 @@ class Pipeline:
             cv2.imshow("Football Tracker", display)
 
         cv2.setMouseCallback("Football Tracker", lambda *a: None)
-        cv2.displayStatusBar("Football Tracker", "")
 
         if len(clicks) >= 4:
             image_pts = np.array(clicks[:4], dtype=np.float32)
@@ -326,3 +330,10 @@ class Pipeline:
         dy = int(length * np.sin(rad))
         ox, oy = int(origin[0]), int(origin[1])
         cv2.arrowedLine(image, (ox, oy), (ox + dx, oy + dy), color, 2)
+
+    @staticmethod
+    def _resolve_device(device_cfg):
+        """Resolve 'auto' to CUDA if available, otherwise CPU."""
+        if device_cfg == "auto":
+            return "0" if torch.cuda.is_available() else "cpu"
+        return str(device_cfg)

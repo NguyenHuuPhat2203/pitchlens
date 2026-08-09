@@ -1,4 +1,4 @@
-"""Entry point: python -m src"""
+"""Entry point: python main.py"""
 
 import sys
 from pathlib import Path
@@ -7,7 +7,7 @@ import yaml
 
 from src.controller.pipeline import Pipeline
 
-CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "default.yaml"
+CONFIG_PATH = Path(__file__).resolve().parent / "config" / "default.yaml"
 
 
 def main() -> None:
