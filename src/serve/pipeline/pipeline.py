@@ -13,7 +13,6 @@ from src.serve.artifacts.output_writer import OutputWriter
 from src.serve.pipeline.video_reader import VideoReader
 from src.backbone.ball_detector import BallDetector
 from src.serve.pipeline.ball_tracker import BallTracker
-from src.serve.pipeline.calibrator import Calibrator
 from src.serve.pipeline.synloc_calibrator import SynLocCalibrator
 from src.serve.pipeline.shot_detector import ShotDetector
 from src.serve.pipeline.speed_estimator import SpeedEstimator

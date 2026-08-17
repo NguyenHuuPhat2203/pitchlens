@@ -36,13 +36,13 @@ python main.py
 | Speed overlay (km/h, calibration only) | Done |
 | Annotated video output (.mp4) | Done |
 | JSON output (item schema) | Done |
-| FastAPI backend + WebSocket streaming | Done |
+| FastAPI backend + MJPEG streaming | Done |
 | Browser demo (paste YouTube URL) | Done |
 
 ## Architecture
 
 ```
-YouTube URL → download → Pipeline → WebSocket JPEG stream → browser
+YouTube URL → download → Pipeline → MJPEG stream → browser
                                   ↓
                             JSON result array
 ```
@@ -58,7 +58,7 @@ src/
 │   ├── pipeline/   Inference engine (tracker, ball_tracker,
 │   │               calibrator, speed, shot, renderer, video_reader)
 │   ├── artifacts/  Serializer (item schema), OutputWriter
-│   └── adapt/      FastAPI + WebSocket (app, schemas)
+│   └── adapt/      FastAPI + MJPEG stream (app, schemas)
 ├── training/       Train-only (datasets, conversion)
 ├── config.py       Pydantic config models
 └── logger.py       Structured JSON logging
@@ -87,7 +87,9 @@ Then open `demo/index.html`, paste a YouTube URL, and click Analyze.
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/v1/analyze` | Accept `{"url": "..."}`, returns `session_id` |
-| WS | `/v1/stream/{id}` | Binary JPEG frames, then final JSON array |
+| POST | `/v1/upload` | Multipart file upload, returns `session_id` |
+| GET | `/v1/stream/{id}` | MJPEG video stream |
+| GET | `/v1/progress/{id}` | `{processed, total}` |
 
 ### Training
 

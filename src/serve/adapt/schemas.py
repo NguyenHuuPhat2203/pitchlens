@@ -37,3 +37,24 @@ class ErrorResponse(BaseModel):
 
     status: str = "error"
     error: ErrorDetail
+
+
+class UploadResponse(BaseModel):
+    """POST /v1/upload success response."""
+
+    status: str = "success"
+    result: AnalyzeResult
+
+
+class ProgressResult(BaseModel):
+    """Result payload inside ProgressResponse."""
+
+    processed: int
+    total: int
+
+
+class ProgressResponse(BaseModel):
+    """GET /v1/progress/{id} response."""
+
+    status: str = "success"
+    result: ProgressResult

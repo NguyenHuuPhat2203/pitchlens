@@ -11,7 +11,7 @@
   button { background: #2563eb; border-color: #2563eb; cursor: pointer; margin-top: 8px; }
   button:disabled { opacity: 0.5; cursor: default; }
   #status { margin: 12px 0; font-size: 14px; color: #9ca3af; }
-  #canvas { width: 100%; border-radius: 8px; border: 1px solid #333; display: none; }
+  #img { width: 100%; border-radius: 8px; border: 1px solid #333; display: none; }
   #stats { font-size: 13px; color: #6b7280; margin-top: 4px; }
 </style>
 </head>
@@ -22,12 +22,11 @@
 <input id="url" type="text" placeholder="Paste YouTube URL...">
 <button id="start" onclick="start()">Analyze</button>
 <div id="status"></div>
-<canvas id="canvas"></canvas>
+<img id="img">
 <div id="stats"></div>
 
 <script>
 const API = "http://localhost:8000";
-let frameCount = 0;
 
 async function start() {
   const url = document.getElementById("url").value.trim();
@@ -35,7 +34,7 @@ async function start() {
 
   const btn = document.getElementById("start");
   btn.disabled = true;
-  document.getElementById("status").textContent = "Downloading video...";
+  document.getElementById("status").textContent = "Downloading...";
 
   const res = await fetch(`${API}/v1/analyze`, {
     method: "POST",
@@ -45,49 +44,23 @@ async function start() {
   const data = await res.json();
 
   if (data.status !== "success") {
-    document.getElementById("status").textContent = "Error: " + JSON.stringify(data.error);
+    document.getElementById("status").textContent =
+      "Error: " + JSON.stringify(data.error);
     btn.disabled = false;
     return;
   }
 
   const sid = data.result.session_id;
-  document.getElementById("status").textContent =
-    `Streaming ${data.result.total_frames} frames...`;
+  document.getElementById("img").src = `${API}/v1/stream/${sid}`;
+  document.getElementById("img").style.display = "block";
+  document.getElementById("status").textContent = "Streaming...";
 
-  const ws = new WebSocket(`ws://localhost:8000/v1/stream/${sid}`);
-  const canvas = document.getElementById("canvas");
-  const ctx = canvas.getContext("2d");
-  canvas.style.display = "block";
-
-  ws.binaryType = "arraybuffer";
-
-  ws.onmessage = (event) => {
-    if (event.data instanceof ArrayBuffer) {
-      const blob = new Blob([event.data], { type: "image/jpeg" });
-      const img = new Image();
-      img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-        frameCount++;
-        document.getElementById("stats").textContent = `Frame ${frameCount}`;
-      };
-      img.src = URL.createObjectURL(blob);
-    } else {
-      // Final JSON result
-      const items = JSON.parse(event.data);
-      const players = items[items.length - 1]?.result?.players || [];
-      document.getElementById("status").textContent =
-        `Done. ${frameCount} frames, ${players.length} players in last frame.`;
-      btn.disabled = false;
-      ws.close();
-    }
-  };
-
-  ws.onerror = () => {
-    document.getElementById("status").textContent = "WebSocket error.";
-    btn.disabled = false;
-  };
+  const timer = setInterval(async () => {
+    const p = await fetch(`${API}/v1/progress/${sid}`);
+    const pd = await p.json();
+    document.getElementById("stats").textContent =
+      `Frame ${pd.result.processed}/${pd.result.total}`;
+  }, 1000);
 }
 </script>
 </body>
