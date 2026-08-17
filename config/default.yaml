@@ -3,7 +3,7 @@ video:
   source: "data/sample.mp4"        # Path to input video file.
 
 model:
-  player_detector: "yolo26s.pt"    # YOLO model for player detection.
+  player_detector: "models/player_detector.onnx"    # YOLO model for player detection.
   detection_conf: 0.3              # Minimum confidence threshold.
   device: "auto"                   # "auto" = CUDA if available, else CPU.
 

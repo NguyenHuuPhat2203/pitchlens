@@ -254,7 +254,10 @@ class Pipeline:
         ball_track = None
         events = []
         if self._ball_enabled:
-            ball_det = self._ball_detector.detect_ball(image)
+            if frame_index % 2 == 0:
+                ball_det = self._ball_detector.detect_ball(image)
+            else:
+                ball_det = None  # Kalman predicts this frame
             ball_track = self._ball_tracker.update(ball_det)
             shot = self._shot_detector.update(ball_track)
             if shot is not None:
