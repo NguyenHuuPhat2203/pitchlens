@@ -10,14 +10,12 @@ from src.serve.pipeline.gpu_utils import safe_predict
 
 
 class BallDetector:
-    """Detects the football using YOLO's built-in sports-ball class.
+    """Detects the football using a YOLO model.
 
-    YOLO COCO class index 32 = ``sports ball``.  For better accuracy
-    on broadcast footage, fine-tune a dedicated model and swap the
-    model path in configuration.
+    Custom fine-tuned models use class index 0 for the ball.
     """
 
-    _SPORTS_BALL_CLASS = 32
+    _BALL_CLASS = 0
 
     def __init__(self, model_name: str, device: str = "0") -> None:
         """Load the YOLO model.
@@ -36,13 +34,13 @@ class BallDetector:
             frame: BGR image array (height, width, 3).
 
         Returns:
-            A Detection if a sports ball is found, or None.
+            A Detection if a ball is found, or None.
         """
         results = safe_predict(
             self._model,
             frame,
             device=self._device,
-            classes=[self._SPORTS_BALL_CLASS],
+            classes=[self._BALL_CLASS],
             verbose=False,
         )
         best: Detection | None = None
@@ -56,7 +54,7 @@ class BallDetector:
             for bbox, conf in zip(boxes, confs):
                 det = Detection(
                     bbox=tuple(float(v) for v in bbox),
-                    class_id=self._SPORTS_BALL_CLASS,
+                    class_id=self._BALL_CLASS,
                     confidence=float(conf),
                 )
                 if best is None or det.confidence > best.confidence:

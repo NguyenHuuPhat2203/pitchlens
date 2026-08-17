@@ -19,7 +19,7 @@ team_classifier:
 
 ball_detector:
   enabled: true                    # Whether to detect and track the ball.
-  model: "yolo26s.pt"             # Model for ball detection.
+  model: "models/ball_detector.onnx"             # Model for ball detection.
   max_lost_frames: 15              # Frames before declaring ball lost.
 
 shot_detector:

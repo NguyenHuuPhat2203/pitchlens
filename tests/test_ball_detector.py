@@ -12,25 +12,25 @@ class TestBallDetector:
 
     @pytest.fixture
     def detector(self) -> BallDetector:
-        """Load YOLO26s once, using the built-in sports-ball class."""
+        """Load a custom single-class ball model (class 0)."""
         return BallDetector(model_name="yolo26s.pt", device="cpu")
 
     def test_detect_ball_returns_none_or_detection(
         self, detector: BallDetector,
     ) -> None:
-        """detect_ball returns None or a Detection with class_id=32."""
+        """detect_ball returns None or a Detection."""
         frame = np.zeros((480, 640, 3), dtype=np.uint8)
         result = detector.detect_ball(frame)
         assert result is None or isinstance(result, Detection)
 
-    def test_ball_detection_has_sports_ball_class(
+    def test_ball_detection_has_ball_class(
         self, detector: BallDetector,
     ) -> None:
-        """If a ball is found, its class_id is 32 (COCO sports ball)."""
+        """If a ball is found, its class_id is 0 (custom ball model)."""
         frame = np.zeros((480, 640, 3), dtype=np.uint8)
         result = detector.detect_ball(frame)
         if result is not None:
-            assert result.class_id == 32
+            assert result.class_id == 0
 
     def test_ball_detection_bbox_is_valid(
         self, detector: BallDetector,

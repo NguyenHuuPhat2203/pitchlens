@@ -261,6 +261,12 @@ class Pipeline:
                 self._active_shot = (frame_index, shot.ball_speed_kmh)
                 events.append(shot)
 
+        # Draw ball on the frame.
+        if ball_track is not None and ball_track.state == "in_play":
+            cx, cy = int(ball_track.centroid[0]), int(ball_track.centroid[1])
+            cv2.circle(annotated, (cx, cy), 6, (0, 255, 0), -1)
+            cv2.circle(annotated, (cx, cy), 9, (0, 255, 0), 2)
+
         # Flash "SHOT!" overlay.
         if self._active_shot is not None:
             shot_frame, shot_speed = self._active_shot
