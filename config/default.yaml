@@ -30,3 +30,10 @@ calibration:
   enabled: true                    # Whether to use pitch calibration + speed.
   speed_window: 12                 # Frames to smooth speed/direction over.
   camera_dir: null                 # SynLoc camera model directory (null=manual clicks).
+
+timeline:
+  enabled: true                         # Build offline tactical timeline.
+  max_ball_player_distance_px: 80.0     # Max pixel distance for possession.
+  min_possession_frames: 3              # Frames needed to confirm possession.
+  output_json: null                     # Optional tactical timeline path.
+  benchmark_json: null                   # Optional stage timing report path.

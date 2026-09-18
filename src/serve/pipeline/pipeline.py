@@ -8,17 +8,19 @@ import cv2
 import numpy as np
 import supervision as sv
 
-from src.model.frame import ProcessedFrame
-from src.serve.artifacts.output_writer import OutputWriter
-from src.serve.pipeline.video_reader import VideoReader
 from src.backbone.ball_detector import BallDetector
+from src.features.team_classifier import TeamClassifier
+from src.features.timeline_builder import TimelineBuilder
+from src.model.frame import ProcessedFrame
+from src.serve.artifacts.benchmark import StageTimer
+from src.serve.artifacts.output_writer import OutputWriter
 from src.serve.pipeline.ball_tracker import BallTracker
-from src.serve.pipeline.synloc_calibrator import SynLocCalibrator
+from src.serve.pipeline.renderer import Renderer
 from src.serve.pipeline.shot_detector import ShotDetector
 from src.serve.pipeline.speed_estimator import SpeedEstimator
-from src.features.team_classifier import TeamClassifier
+from src.serve.pipeline.synloc_calibrator import SynLocCalibrator
 from src.serve.pipeline.tracker import Tracker
-from src.serve.pipeline.renderer import Renderer
+from src.serve.pipeline.video_reader import VideoReader
 
 
 class Pipeline:
@@ -88,44 +90,44 @@ class Pipeline:
         self._speed_estimator = SpeedEstimator(fps=25.0)
         self._position_history: dict[int, list[tuple[float, float]]] = {}
         self._speed_window = calib_cfg.speed_window
+        timeline_cfg = config.timeline
+        self._timeline_enabled = timeline_cfg.enabled
+        self._timeline_builder = TimelineBuilder(
+            timeline_cfg.max_ball_player_distance_px,
+            timeline_cfg.min_possession_frames,
+        )
+        self._benchmark_output = timeline_cfg.benchmark_json
+        self._stage_timer = StageTimer()
+        self._timeline_output = timeline_cfg.output_json
         self._last_direction: dict[int, float] = {}  # frames to smooth over
 
     def run(self, source_path: str) -> list[np.ndarray]:
-        """Run the pipeline on every frame, return annotated frames.
-
-        If calibration is enabled, collects 4 pitch-landmark clicks
-        on the first frame before processing begins.
-
-        Args:
-            source_path: Path to the input video file.
-
-        Returns:
-            List of annotated BGR frames in display order.
-        """
+        """Run the pipeline on every frame, returning requested output frames."""
         reader = VideoReader(source_path)
         frame_iter = iter(reader)
 
-        # --- Calibration click phase (before main loop) ---
         if self._calib_enabled and not self._calibrator.has_camera:
             self._collect_calibration_clicks(frame_iter)
 
+        render = self._display or self._output_video is not None
         annotated_frames: dict[int, np.ndarray] = {}
         processed_frames: list[ProcessedFrame] = []
         total_frames = 0
 
         with ThreadPoolExecutor(max_workers=1) as io_pool:
-            read_future = io_pool.submit(self._read, frame_iter)
-
+            read_future = io_pool.submit(
+                self._stage_timer.measure, "decode", self._read, frame_iter
+            )
             while read_future is not None:
                 frame_index, frame_image = read_future.result()
                 if frame_image is None:
                     break
-
                 total_frames += 1
-                read_future = io_pool.submit(self._read, frame_iter)
-
+                read_future = io_pool.submit(
+                    self._stage_timer.measure, "decode", self._read, frame_iter
+                )
                 annotated, processed = self._process_frame_image(
-                    frame_image, frame_index
+                    frame_image, frame_index, render=render
                 )
                 annotated_frames[frame_index] = annotated
                 processed_frames.append(processed)
@@ -137,14 +139,38 @@ class Pipeline:
 
         cv2.destroyAllWindows()
 
-        # Persist outputs if paths are configured.
-        ordered_annotated = [annotated_frames[i] for i in range(total_frames)]
+        ordered_annotated = [
+            annotated_frames[i] for i in range(total_frames)
+        ]
         if self._output_video:
-            self._writer.write_video(
-                ordered_annotated, self._output_video, fps=25.0,
+            self._stage_timer.measure(
+                "encode",
+                self._writer.write_video,
+                ordered_annotated,
+                self._output_video,
+                25.0,
             )
         if self._output_json:
-            self._writer.write_json(processed_frames, self._output_json)
+            self._stage_timer.measure(
+                "json_write", self._writer.write_json,
+                processed_frames, self._output_json
+            )
+        if self._timeline_enabled and self._timeline_output:
+            events = self._stage_timer.measure(
+                "timeline_build",
+                self._timeline_builder.build,
+                processed_frames,
+            )
+            self._stage_timer.measure(
+                "timeline_write",
+                self._writer.write_timeline,
+                events,
+                self._timeline_output,
+            )
+        if self._benchmark_output:
+            self._writer.write_benchmark(
+                self._stage_timer.report(), self._benchmark_output
+            )
 
         return ordered_annotated
 
@@ -162,8 +188,7 @@ class Pipeline:
         Returns:
             (annotated_image, processed_frame) tuple.
         """
-        return self._process_frame_image(image, frame_index)
-
+        return self._process_frame_image(image, frame_index, render=True)
     @staticmethod
     def _read(frame_iter):
         """Read the next frame.  Runs in the I/O thread."""
@@ -173,18 +198,18 @@ class Pipeline:
         except StopIteration:
             return -1, None
 
-    def _process_frame_image(self, image, frame_index):
-        """Track players, classify teams, and render annotations."""
-        tracks = self._tracker.track(image)
+    def _process_frame_image(self, image, frame_index, render=True):
+        """Track players, classify teams, and optionally render annotations."""
+        tracks = self._stage_timer.measure(
+            "player_track", self._tracker.track, image
+        )
         if not tracks:
             processed = ProcessedFrame(
                 frame_number=frame_index,
                 timestamp=0.0,
             )
-            return image.copy(), processed
+            return (image if not render else image.copy()), processed
 
-        # Team classification — collect crops during fit phase,
-        # predict labels after fitting.
         labels: list[str] = []
         if self._team_enabled:
             if not self._team_fitted and frame_index < self._team_fit_frames:
@@ -201,29 +226,31 @@ class Pipeline:
                 for t in tracks:
                     crop = self._crop_torso(image, t.bbox)
                     t.team = (
-                        self._team_clf.predict(crop) if crop is not None
-                        else None
+                        self._team_clf.predict(crop) if crop is not None else None
                     )
 
-        for t in tracks:
-            team_str = f" {t.team}" if t.team else ""
-            speed_str = f" {t.speed_kmh:.0f}km/h" if t.speed_kmh else ""
-            labels.append(f"#{t.track_id}{team_str}{speed_str}")
+        if render:
+            for t in tracks:
+                team_str = f" {t.team}" if t.team else ""
+                speed_str = f" {t.speed_kmh:.0f}km/h" if t.speed_kmh else ""
+                labels.append(f"#{t.track_id}{team_str}{speed_str}")
+            sv_detections = sv.Detections(
+                xyxy=np.array([t.bbox for t in tracks]),
+                confidence=np.array([t.confidence for t in tracks]),
+                class_id=np.array([t.class_id for t in tracks]),
+                tracker_id=np.array([t.track_id for t in tracks]),
+            )
+            annotated = self._stage_timer.measure(
+                "render", self._renderer.render_tracks,
+                image, sv_detections, labels
+            )
+        else:
+            annotated = image
 
-        sv_detections = sv.Detections(
-            xyxy=np.array([t.bbox for t in tracks]),
-            confidence=np.array([t.confidence for t in tracks]),
-            class_id=np.array([t.class_id for t in tracks]),
-            tracker_id=np.array([t.track_id for t in tracks]),
-        )
-        annotated = self._renderer.render_tracks(image, sv_detections, labels)
-
-        # Direction arrows (always on, pixel-space) + speed (homography only).
         for t in tracks:
             cx = (t.bbox[0] + t.bbox[2]) / 2
             cy = (t.bbox[1] + t.bbox[3]) / 2
             curr_pos = (cx, cy)
-
             hist = self._position_history.setdefault(t.track_id, [])
             hist.append(curr_pos)
             if len(hist) > self._speed_window:
@@ -234,46 +261,43 @@ class Pipeline:
                 dx = curr_pos[0] - prev[0]
                 dy = curr_pos[1] - prev[1]
                 dist = float(np.hypot(dx, dy))
-
                 if dist >= 10:
                     direction = float(np.degrees(np.arctan2(dy, dx)))
                     self._last_direction[t.track_id] = direction
                 else:
                     direction = self._last_direction.get(t.track_id, 0.0)
-
                 t.direction_deg = round(direction, 1)
-                self._draw_arrow(annotated, curr_pos, direction)
-
+                if render:
+                    self._draw_arrow(annotated, curr_pos, direction)
                 if self._calib_enabled and self._calibrator.is_calibrated:
                     speed, _ = self._speed_estimator.estimate(
-                        prev, curr_pos, self._calibrator.homography,
+                        prev, curr_pos, self._calibrator.homography
                     )
                     t.speed_kmh = round(speed, 1)
 
-        # Ball detection + tracking + shot detection.
         ball_track = None
         events = []
         if self._ball_enabled:
             if frame_index % 2 == 0:
-                ball_det = self._ball_detector.detect_ball(image)
+                ball_det = self._stage_timer.measure(
+                    "ball_detect", self._ball_detector.detect_ball, image
+                )
             else:
-                ball_det = None  # Kalman predicts this frame
+                ball_det = None
             ball_track = self._ball_tracker.update(ball_det)
             shot = self._shot_detector.update(ball_track)
             if shot is not None:
                 self._active_shot = (frame_index, shot.ball_speed_kmh)
                 events.append(shot)
 
-        # Draw ball on the frame.
-        if ball_track is not None and ball_track.state == "in_play":
+        if render and ball_track is not None and ball_track.state == "in_play":
             cx, cy = int(ball_track.centroid[0]), int(ball_track.centroid[1])
             cv2.circle(annotated, (cx, cy), 6, (0, 255, 0), -1)
             cv2.circle(annotated, (cx, cy), 9, (0, 255, 0), 2)
 
-        # Flash "SHOT!" overlay.
-        if self._active_shot is not None:
+        if render and self._active_shot is not None:
             shot_frame, shot_speed = self._active_shot
-            if frame_index - shot_frame < 25:  # ~1 second at 25 fps
+            if frame_index - shot_frame < 25:
                 cv2.putText(
                     annotated,
                     f"SHOT! {shot_speed} km/h",

@@ -97,6 +97,28 @@ Open `notebooks/football_tracker_training.ipynb` in Jupyter or Colab.
 Covers dataset download, MOT→YOLO conversion, player fine-tuning,
 ball detector training, and pipeline evaluation.
 
+### Offline tactical analysis
+
+For batch analysis, disable display and video output so the pipeline writes
+facts and timeline JSON without annotation work:
+
+```yaml
+pipeline:
+  display: false
+  output_video: null
+  output_json: "outputs/frames.json"
+
+timeline:
+  enabled: true
+  output_json: "outputs/timeline.json"
+  benchmark_json: "outputs/benchmark.json"
+```
+
+`timeline.json` contains conservative heuristic events (`pass` and `shot`)
+with `source: "heuristic"`. Export its events with
+`src.training.timeline_export.export_candidates` for human review before
+training. The manifest stores source-video paths and frame ranges; it does
+not extract clips or pretend to be a trained FOOTPASS model.
 ## Configuration
 
 `config/default.yaml` is a YAML file validated against a Pydantic model

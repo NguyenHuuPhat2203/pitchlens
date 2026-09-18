@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict, is_dataclass
+
 from src.model.frame import ProcessedFrame
 
 
@@ -21,6 +23,15 @@ class Serializer:
         Returns:
             Dict ready for ``json.dump``.
         """
+        ball = (
+            asdict(frame.ball)
+            if frame.ball is not None and is_dataclass(frame.ball)
+            else frame.ball
+        )
+        events = [
+            asdict(event) if is_dataclass(event) else event
+            for event in frame.events
+        ]
         return {
             "frame_number": frame.frame_number,
             "timestamp": frame.timestamp,
@@ -36,8 +47,8 @@ class Serializer:
                 }
                 for p in frame.players
             ],
-            "ball": None,
-            "events": [],
+            "ball": ball,
+            "events": events,
         }
 
     def serialize_item(self, frame: ProcessedFrame) -> dict:

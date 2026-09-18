@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 import cv2
 import numpy as np
 
 from src.model.frame import ProcessedFrame
+from src.model.tactical_event import TacticalEvent
 from src.serve.artifacts.serializer import Serializer
 
 
@@ -55,3 +57,19 @@ class OutputWriter:
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, "w", encoding="utf-8") as fh:
             json.dump(doc, fh, indent=2, ensure_ascii=False)
+
+    def write_timeline(
+        self, events: list[TacticalEvent], output_path: str
+    ) -> None:
+        """Write ordered tactical events as a JSON array."""
+        path = Path(output_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8") as fh:
+            json.dump([asdict(event) for event in events], fh, indent=2)
+
+    def write_benchmark(self, report: dict, output_path: str) -> None:
+        """Write stage timing data as JSON."""
+        path = Path(output_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8") as fh:
+            json.dump(report, fh, indent=2)

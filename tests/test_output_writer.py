@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 
 from src.model.frame import ProcessedFrame
+from src.model.tactical_event import TacticalEvent
 from src.model.track import PlayerTrack
 from src.serve.artifacts.output_writer import OutputWriter
 
@@ -82,3 +83,10 @@ class TestOutputWriter:
             assert frame_data["frame_number"] == 0
             assert len(frame_data["players"]) == 1
             assert frame_data["players"][0]["track_id"] == 1
+
+
+def test_write_timeline_preserves_event_contract(tmp_path) -> None:
+    output = tmp_path / "timeline.json"
+    event = TacticalEvent(10, 12, "pass", 4, "A", 0.7, None, "heuristic")
+    OutputWriter().write_timeline([event], str(output))
+    assert json.loads(output.read_text(encoding="utf-8"))[0]["source"] == "heuristic"

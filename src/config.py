@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import torch
-from pydantic import BaseModel, Field, NonNegativeFloat, PositiveInt
-from pydantic import field_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    NonNegativeFloat,
+    PositiveFloat,
+    PositiveInt,
+    field_validator,
+)
 
 
 class ModelConfig(BaseModel):
@@ -29,8 +34,8 @@ class PipelineConfig(BaseModel):
     """Pipeline execution settings."""
 
     display: bool = True
-    output_video: Optional[str] = None
-    output_json: Optional[str] = None
+    output_video: str | None = None
+    output_json: str | None = None
     cpu_workers: PositiveInt = 2
 
 
@@ -61,7 +66,17 @@ class CalibrationConfig(BaseModel):
 
     enabled: bool = True
     speed_window: PositiveInt = 12
-    camera_dir: Optional[str] = None
+    camera_dir: str | None = None
+
+
+class TimelineConfig(BaseModel):
+    """Offline tactical timeline settings."""
+
+    enabled: bool = True
+    max_ball_player_distance_px: PositiveFloat = 80.0
+    min_possession_frames: PositiveInt = 3
+    output_json: str | None = None
+    benchmark_json: str | None = None
 
 
 class AppConfig(BaseModel):
@@ -74,6 +89,7 @@ class AppConfig(BaseModel):
     ball_detector: BallDetectorConfig = BallDetectorConfig()
     shot_detector: ShotDetectorConfig = ShotDetectorConfig()
     calibration: CalibrationConfig = CalibrationConfig()
+    timeline: TimelineConfig = TimelineConfig()
 
 
 class VideoConfig(BaseModel):

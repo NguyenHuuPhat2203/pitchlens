@@ -6,6 +6,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from src.model.track import PlayerTrack
 from src.serve.pipeline.pipeline import Pipeline
 
 
@@ -19,16 +20,26 @@ def _make_test_video(path: str, frame_count: int = 5) -> None:
     writer.release()
 
 
-def _make_config(video_path: str):
+def _make_config(video_path: str, output_json=None, timeline_json=None):
     """Return minimal AppConfig for testing."""
-    from src.config import AppConfig, CalibrationConfig, ModelConfig
-    from src.config import PipelineConfig, TeamClassifierConfig, VideoConfig
+    from src.config import (
+        AppConfig,
+        CalibrationConfig,
+        ModelConfig,
+        PipelineConfig,
+        TeamClassifierConfig,
+        VideoConfig,
+    )
+
     return AppConfig(
         video=VideoConfig(source=video_path),
         model=ModelConfig(player_detector="yolo26s.pt", device="cpu"),
-        pipeline=PipelineConfig(display=False, cpu_workers=2),
+        pipeline=PipelineConfig(
+            display=False, cpu_workers=2, output_json=output_json
+        ),
         team_classifier=TeamClassifierConfig(enabled=False),
         calibration=CalibrationConfig(enabled=False),
+        timeline={"output_json": timeline_json} if timeline_json else {},
     )
 
 
@@ -58,3 +69,30 @@ class TestPipeline:
             for frame in processed:
                 assert isinstance(frame, np.ndarray)
                 assert frame.shape == (240, 320, 3)
+
+
+
+def test_json_only_batch_skips_renderer(tmp_path, monkeypatch) -> None:
+    video_path = str(tmp_path / "test.mp4")
+    frame_json = str(tmp_path / "frames.json")
+    timeline_json = str(tmp_path / "timeline.json")
+    _make_test_video(video_path, frame_count=1)
+    pipeline = Pipeline(
+        _make_config(video_path, frame_json, timeline_json)
+    )
+    pipeline._tracker.track = lambda image: [
+        PlayerTrack(1, (10.0, 20.0, 50.0, 80.0), 0, 0.9)
+    ]
+    monkeypatch.setattr(
+        pipeline._renderer,
+        "render_tracks",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("renderer should be skipped")
+        ),
+    )
+
+    frames = pipeline.run(video_path)
+
+    assert len(frames) == 1
+    assert Path(frame_json).exists()
+    assert Path(timeline_json).exists()
