@@ -82,6 +82,7 @@ class Pipeline:
             conf=model_cfg.detection_conf,
             tensorrt=model_cfg.tensorrt,
         ) if self._ball_enabled else None
+        self._ball_pool = ThreadPoolExecutor(max_workers=1) if self._ball_enabled else None
 
         calib_cfg = config.calibration
         self._calib_enabled = calib_cfg.enabled
@@ -229,12 +230,20 @@ class Pipeline:
 
     def _process_frame_image(self, image, frame_index, timestamp, render=True):
         """Track players and ball, classify teams, optionally render."""
+        ball_future = None
+        if self._ball_enabled and frame_index % 2 == 0:
+            # Overlap the ball model with player tracking: -3 ms/frame with
+            # identical output (research/experiments/h4-parallel-ball).
+            ball_future = self._ball_pool.submit(
+                self._stage_timer.measure,
+                "ball_detect", self._ball_detector.detect_balls, image,
+            )
         tracks = self._stage_timer.measure(
             "player_track", self._tracker.track, image
         )
         self._classify_teams(image, tracks, frame_index)
         arrows = self._update_motion(tracks, timestamp)
-        ball_track, events = self._update_ball(image, frame_index)
+        ball_track, events = self._update_ball(ball_future, frame_index)
 
         annotated = image
         if render:
@@ -319,17 +328,11 @@ class Pipeline:
                 t.speed_kmh = round(speed, 1)
         return arrows
 
-    def _update_ball(self, image, frame_index):
-        """Detect (every other frame), track the ball, and detect shots."""
+    def _update_ball(self, ball_future, frame_index):
+        """Track the ball from this frame's detections (if any), detect shots."""
         if not self._ball_enabled:
             return None, []
-        candidates = (
-            self._stage_timer.measure(
-                "ball_detect", self._ball_detector.detect_balls, image
-            )
-            if frame_index % 2 == 0
-            else []
-        )
+        candidates = ball_future.result() if ball_future is not None else []
         ball_track = self._ball_tracker.update(candidates)
         shot = self._shot_detector.update(ball_track, frame_index, self._fps)
         if shot is None:
