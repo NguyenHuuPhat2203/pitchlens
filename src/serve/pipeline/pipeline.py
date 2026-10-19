@@ -11,16 +11,20 @@ import supervision as sv
 from src.backbone.ball_detector import BallDetector
 from src.features.team_classifier import TeamClassifier
 from src.features.timeline_builder import TimelineBuilder
-from src.model.frame import ProcessedFrame
+from src.logger import get_logger
+from src.model.frame import ProcessedFrame, RunResult
 from src.serve.artifacts.benchmark import StageTimer
 from src.serve.artifacts.output_writer import OutputWriter
 from src.serve.pipeline.ball_tracker import BallTracker
+from src.serve.pipeline.gpu_utils import execution_summary, fp16_model_path
 from src.serve.pipeline.renderer import Renderer
 from src.serve.pipeline.shot_detector import ShotDetector
 from src.serve.pipeline.speed_estimator import SpeedEstimator
 from src.serve.pipeline.synloc_calibrator import SynLocCalibrator
 from src.serve.pipeline.tracker import Tracker
 from src.serve.pipeline.video_reader import VideoReader
+
+_log = get_logger(__name__)
 
 
 class Pipeline:
@@ -48,11 +52,16 @@ class Pipeline:
         self._output_json = pipeline_cfg.output_json
 
         device = model_cfg.device
+        half = model_cfg.half
+
+        def model_path(name: str) -> str:
+            return fp16_model_path(name) if half else name
 
         self._tracker = Tracker(
-            model_name=model_cfg.player_detector,
+            model_name=model_path(model_cfg.player_detector),
             tracker_config="ocsort.yaml",
             device=device,
+            half=half,
         )
         self._renderer = Renderer()
         self._writer = OutputWriter()
@@ -69,8 +78,9 @@ class Pipeline:
         shot_cfg = config.shot_detector
         self._ball_enabled = ball_cfg.enabled
         self._ball_detector = BallDetector(
-            model_name=ball_cfg.model,
+            model_name=model_path(ball_cfg.model),
             device=device,
+            half=half,
         ) if self._ball_enabled else None
         self._ball_tracker = BallTracker(
             max_lost_frames=ball_cfg.max_lost_frames,
@@ -100,9 +110,10 @@ class Pipeline:
         self._stage_timer = StageTimer()
         self._timeline_output = timeline_cfg.output_json
         self._last_direction: dict[int, float] = {}  # frames to smooth over
+        _log.info("pipeline_device", **execution_summary(device, half))
 
-    def run(self, source_path: str) -> list[np.ndarray]:
-        """Run the pipeline on every frame, returning requested output frames."""
+    def run(self, source_path: str) -> RunResult:
+        """Run the pipeline on every frame; keep images only when rendering."""
         reader = VideoReader(source_path)
         frame_iter = iter(reader)
 
@@ -129,7 +140,8 @@ class Pipeline:
                 annotated, processed = self._process_frame_image(
                     frame_image, frame_index, render=render
                 )
-                annotated_frames[frame_index] = annotated
+                if render:
+                    annotated_frames[frame_index] = annotated
                 processed_frames.append(processed)
 
                 if self._display:
@@ -139,9 +151,9 @@ class Pipeline:
 
         cv2.destroyAllWindows()
 
-        ordered_annotated = [
-            annotated_frames[i] for i in range(total_frames)
-        ]
+        ordered_annotated = (
+            [annotated_frames[i] for i in range(total_frames)] if render else []
+        )
         if self._output_video:
             self._stage_timer.measure(
                 "encode",
@@ -172,7 +184,7 @@ class Pipeline:
                 self._stage_timer.report(), self._benchmark_output
             )
 
-        return ordered_annotated
+        return RunResult(frame_count=total_frames, frames=ordered_annotated)
 
     # ------------------------------------------------------------------
     # Internal helpers

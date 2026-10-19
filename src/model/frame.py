@@ -44,3 +44,17 @@ class ProcessedFrame:
     players: list[PlayerTrack] = field(default_factory=list)
     ball: object | None = None
     events: list = field(default_factory=list)
+
+
+@dataclass
+class RunResult:
+    """Outcome of one ``Pipeline.run()`` call.
+
+    Attributes:
+        frame_count: Frames processed.
+        frames: Annotated frames; empty unless display or video output
+            was requested, so batch runs never hold images in memory.
+    """
+
+    frame_count: int
+    frames: list[np.ndarray] = field(default_factory=list)

@@ -23,6 +23,25 @@ python main.py
 2. Pipeline runs — annotated frames appear in an OpenCV window
 3. Press Q to quit
 
+### GPU acceleration
+
+On Windows, `pip install -r requirements.txt` alone installs a CPU-only
+`torch`. Install the CUDA build first, inside the project `.venv`:
+
+```bash
+python -m venv .venv
+.venv/Scripts/python.exe -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+.venv/Scripts/python.exe -m pip install -r requirements.txt
+```
+
+With CUDA, inference runs in FP16 by default (`model.half: null`). The
+pipeline converts each `.onnx` model once to a cached `*.fp16.onnx` beside
+it. Set `model.half: false` to force FP32.
+
+Model downloads, Ultralytics settings, and torch / Hugging Face caches stay
+inside the project: `.cache/`, `weights/`, `runs/`, and `data/datasets/`.
+`import src` sets this up; the local notebooks do the same in their first cell.
+
 ## Features
 
 | Feature | Status |

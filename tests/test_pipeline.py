@@ -1,5 +1,6 @@
 """Integration tests for the pipeline — end-to-end frame processing."""
 
+import json
 import tempfile
 from pathlib import Path
 
@@ -47,28 +48,41 @@ class TestPipeline:
     """End-to-end pipeline tests."""
 
     def test_processes_all_frames(self) -> None:
-        """Pipeline processes every frame without deadlocking."""
+        """Pipeline processes every frame and returns one rendered frame each."""
         with tempfile.TemporaryDirectory() as tmp:
             video_path = str(Path(tmp) / "test.mp4")
             _make_test_video(video_path, frame_count=5)
             config = _make_config(video_path)
-            pipeline = Pipeline(config)
-            processed = pipeline.run(video_path)
-            assert len(processed) == 5, (
-                f"Expected 5 frames, got {len(processed)}"
-            )
+            config.pipeline.output_video = str(Path(tmp) / "out.mp4")
+            result = Pipeline(config).run(video_path)
+            assert result.frame_count == 5
+            assert len(result.frames) == 5
 
     def test_output_frames_have_correct_shape(self) -> None:
-        """Every output frame is a valid BGR image array."""
+        """Every rendered output frame is a valid BGR image array."""
         with tempfile.TemporaryDirectory() as tmp:
             video_path = str(Path(tmp) / "test.mp4")
             _make_test_video(video_path, frame_count=3)
             config = _make_config(video_path)
-            pipeline = Pipeline(config)
-            processed = pipeline.run(video_path)
-            for frame in processed:
+            config.pipeline.output_video = str(Path(tmp) / "out.mp4")
+            result = Pipeline(config).run(video_path)
+            for frame in result.frames:
                 assert isinstance(frame, np.ndarray)
                 assert frame.shape == (240, 320, 3)
+
+
+def test_json_only_run_returns_no_buffered_frames(tmp_path) -> None:
+    video_path = str(tmp_path / "test.mp4")
+    frame_json = str(tmp_path / "frames.json")
+    _make_test_video(video_path, frame_count=4)
+    pipeline = Pipeline(_make_config(video_path, output_json=frame_json))
+
+    result = pipeline.run(video_path)
+
+    assert result.frame_count == 4
+    assert result.frames == []
+    with open(frame_json, encoding="utf-8") as fh:
+        assert len(json.load(fh)) == 4
 
 
 
@@ -91,8 +105,9 @@ def test_json_only_batch_skips_renderer(tmp_path, monkeypatch) -> None:
         ),
     )
 
-    frames = pipeline.run(video_path)
+    result = pipeline.run(video_path)
 
-    assert len(frames) == 1
+    assert result.frame_count == 1
+    assert result.frames == []
     assert Path(frame_json).exists()
     assert Path(timeline_json).exists()

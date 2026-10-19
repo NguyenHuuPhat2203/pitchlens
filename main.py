@@ -22,8 +22,8 @@ def main() -> None:
 
     _log.info("pipeline_start", source=source)
     pipeline = Pipeline(config)
-    frames = pipeline.run(source)
-    _log.info("pipeline_done", total_frames=len(frames))
+    result = pipeline.run(source)
+    _log.info("pipeline_done", total_frames=result.frame_count)
 
 
 if __name__ == "__main__":

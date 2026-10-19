@@ -12,6 +12,7 @@ from pydantic import (
     PositiveFloat,
     PositiveInt,
     field_validator,
+    model_validator,
 )
 
 
@@ -21,6 +22,7 @@ class ModelConfig(BaseModel):
     player_detector: str = "yolo26s.pt"
     detection_conf: NonNegativeFloat = Field(default=0.3, le=1.0)
     device: str = "auto"
+    half: bool | None = None  # None = FP16 when device is not CPU
 
     @field_validator("device", mode="after")
     @classmethod
@@ -28,6 +30,12 @@ class ModelConfig(BaseModel):
         if v == "auto":
             return "0" if torch.cuda.is_available() else "cpu"
         return v
+
+    @model_validator(mode="after")
+    def _resolve_half(self) -> ModelConfig:
+        if self.half is None:
+            self.half = self.device != "cpu"
+        return self
 
 
 class PipelineConfig(BaseModel):

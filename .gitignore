@@ -9,3 +9,7 @@ models/
 dist/
 *.egg-info/
 *.pt
+.cache/
+weights/
+runs/
+drive_checkpoints/

@@ -6,6 +6,7 @@ model:
   player_detector: "models/player_detector.onnx"    # YOLO model for player detection.
   detection_conf: 0.3              # Minimum confidence threshold.
   device: "auto"                   # "auto" = CUDA if available, else CPU.
+  half: null                       # null = FP16 on CUDA, FP32 on CPU. FP16 parity: recall ≥ 0.998, IoU 0.979/0.956 (accepted).
 
 pipeline:
   display: true                    # Show annotated video in window.

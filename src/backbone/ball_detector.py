@@ -17,15 +17,17 @@ class BallDetector:
 
     _BALL_CLASS = 0
 
-    def __init__(self, model_name: str, device: str = "0") -> None:
+    def __init__(self, model_name: str, device: str = "0", half: bool = False) -> None:
         """Load the YOLO model.
 
         Args:
             model_name: YOLO model filename.
             device: PyTorch device string.
+            half: Run FP16 inference.
         """
         self._model = YOLO(model_name)
         self._device = device
+        self._half = half
 
     def detect_ball(self, frame: np.ndarray) -> Detection | None:
         """Run inference and return the highest-confidence ball detection.
@@ -40,6 +42,7 @@ class BallDetector:
             self._model,
             frame,
             device=self._device,
+            quantize=16 if self._half else None,
             classes=[self._BALL_CLASS],
             verbose=False,
         )

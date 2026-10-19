@@ -20,6 +20,7 @@ class Tracker:
         model_name: str,
         tracker_config: str,
         device: str = "0",
+        half: bool = False,
     ) -> None:
         """Load the YOLO model with tracking configuration.
 
@@ -27,10 +28,12 @@ class Tracker:
             model_name: YOLO model filename, e.g. ``"yolo26s.pt"``.
             tracker_config: Tracker YAML filename (ocsort.yaml, etc.).
             device: PyTorch device string.
+            half: Run FP16 inference.
         """
         self._model = YOLO(model_name)
         self._tracker_config = tracker_config
         self._device = device
+        self._half = half
 
     def track(self, frame: np.ndarray) -> list[PlayerTrack]:
         """Detect and track persons in a single frame.
@@ -45,6 +48,7 @@ class Tracker:
             self._model.track,
             frame,
             device=self._device,
+            quantize=16 if self._half else None,
             tracker=self._tracker_config,
             classes=[0],  # person only
             iou=0.3,  # allow more overlap between detections
