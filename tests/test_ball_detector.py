@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from src.model.detection import Detection
 from src.backbone.ball_detector import BallDetector
+from src.model.detection import Detection
 
 
 class TestBallDetector:
@@ -15,30 +15,22 @@ class TestBallDetector:
         """Load a custom single-class ball model (class 0)."""
         return BallDetector(model_name="yolo26s.pt", device="cpu")
 
-    def test_detect_ball_returns_none_or_detection(
+    def test_detect_balls_returns_detections(
         self, detector: BallDetector,
     ) -> None:
-        """detect_ball returns None or a Detection."""
+        """detect_balls returns a list of Detections (possibly empty)."""
         frame = np.zeros((480, 640, 3), dtype=np.uint8)
-        result = detector.detect_ball(frame)
-        assert result is None or isinstance(result, Detection)
+        result = detector.detect_balls(frame)
+        assert isinstance(result, list)
+        assert all(isinstance(d, Detection) for d in result)
 
-    def test_ball_detection_has_ball_class(
+    def test_ball_detections_are_well_formed(
         self, detector: BallDetector,
     ) -> None:
-        """If a ball is found, its class_id is 0 (custom ball model)."""
+        """Every candidate has class 0 and a valid in-frame bounding box."""
         frame = np.zeros((480, 640, 3), dtype=np.uint8)
-        result = detector.detect_ball(frame)
-        if result is not None:
-            assert result.class_id == 0
-
-    def test_ball_detection_bbox_is_valid(
-        self, detector: BallDetector,
-    ) -> None:
-        """A returned detection has a well-formed bounding box."""
-        frame = np.zeros((480, 640, 3), dtype=np.uint8)
-        result = detector.detect_ball(frame)
-        if result is not None:
-            x1, y1, x2, y2 = result.bbox
+        for det in detector.detect_balls(frame):
+            assert det.class_id == 0
+            x1, y1, x2, y2 = det.bbox
             assert 0 <= x1 < x2 <= 640
             assert 0 <= y1 < y2 <= 480

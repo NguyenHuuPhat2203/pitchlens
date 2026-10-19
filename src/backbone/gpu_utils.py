@@ -7,13 +7,27 @@ from pathlib import Path
 
 import onnxruntime
 import torch
+from onnxruntime.capi import onnxruntime_pybind11_state as _ort_state
+
+from src.logger import get_logger
+
+_log = get_logger(__name__)
+
+# CUDA OOM surfaces as a torch error for .pt models and as an
+# onnxruntime Fail/RuntimeException for .onnx models.
+_OOM_ERRORS = (
+    torch.cuda.OutOfMemoryError,
+    _ort_state.Fail,
+    _ort_state.RuntimeException,
+)
 
 
 def safe_predict(model, *args, **kwargs):
-    """Call model with CUDA OOM recovery.
+    """Call model; on an OOM error free GPU memory and retry once.
 
-    On OOM: clear cache, retry on CPU.  Returns the model output
-    (or None if both GPU and CPU fail).
+    The retry uses the same device and arguments (an already-loaded
+    Ultralytics model cannot be moved by a ``device`` kwarg).  A second
+    failure propagates to the caller.
 
     Args:
         model: A YOLO model instance (or any callable returning results).
@@ -21,18 +35,14 @@ def safe_predict(model, *args, **kwargs):
         **kwargs: Keyword args forwarded to the model.
 
     Returns:
-        Model results, or None on unrecoverable error.
+        Model results.
     """
     try:
         return model(*args, **kwargs)
-    except torch.cuda.OutOfMemoryError:
+    except _OOM_ERRORS:
+        _log.warning("inference_oom_retry")
         _free_gpu_memory()
-        try:
-            # Retry on CPU.
-            kwargs_cpu = {**kwargs, "device": "cpu"}
-            return model(*args, **kwargs_cpu)
-        except Exception:
-            return None
+        return model(*args, **kwargs)
 
 
 def _free_gpu_memory() -> None:

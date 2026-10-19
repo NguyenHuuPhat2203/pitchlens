@@ -21,38 +21,32 @@ class TestSpeedEstimator:
 
     def test_zero_displacement_gives_zero_speed(self, calibrated: Calibrator) -> None:
         """A stationary object has speed 0."""
-        estimator = SpeedEstimator(fps=25.0)
-        speed, direction = estimator.estimate(
-            prev=(50.0, 50.0),
-            curr=(50.0, 50.0),
-            homography=calibrated.homography,
+        speed, _ = SpeedEstimator().estimate(
+            (50.0, 50.0), (50.0, 50.0), calibrated.transform, dt=0.04
         )
         assert speed == pytest.approx(0.0, abs=0.01)
 
     def test_known_displacement_gives_expected_speed(
         self, calibrated: Calibrator,
     ) -> None:
-        """Moving 1 meter per frame at 25 fps = 25 m/s = 90 km/h."""
-        estimator = SpeedEstimator(fps=25.0)
-        speed, direction = estimator.estimate(
-            prev=(50.0, 50.0),
-            curr=(51.0, 50.0),  # 1 pixel right
-            homography=calibrated.homography,
+        """1 m in 1/25 s = 25 m/s = 90 km/h."""
+        speed, _ = SpeedEstimator().estimate(
+            (50.0, 50.0), (51.0, 50.0), calibrated.transform, dt=1 / 25
         )
-        # 1 px/frame × 25 fps = 25 px/s = 25 m/s = 90 km/h
         assert speed == pytest.approx(90.0, abs=1.0)
+
+    def test_speed_divides_by_real_elapsed_time(
+        self, calibrated: Calibrator,
+    ) -> None:
+        """Same 1 m displacement over 11 frames at 25 fps is 11x slower."""
+        speed, _ = SpeedEstimator().estimate(
+            (50.0, 50.0), (51.0, 50.0), calibrated.transform, dt=11 / 25
+        )
+        assert speed == pytest.approx(90.0 / 11, abs=0.1)
 
     def test_direction_is_degrees(self, calibrated: Calibrator) -> None:
         """Direction is returned in degrees (0 = right, 90 = down)."""
-        estimator = SpeedEstimator(fps=25.0)
-        _, direction = estimator.estimate(
-            prev=(50.0, 50.0),
-            curr=(60.0, 50.0),  # pure right
-            homography=calibrated.homography,
+        _, direction = SpeedEstimator().estimate(
+            (50.0, 50.0), (60.0, 50.0), calibrated.transform, dt=0.04
         )
         assert direction == pytest.approx(0.0, abs=10.0)
-
-    def test_estimator_uses_default_fps(self) -> None:
-        """Default FPS is 25 if not specified."""
-        estimator = SpeedEstimator()
-        assert estimator._fps == 25.0

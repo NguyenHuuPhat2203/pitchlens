@@ -50,11 +50,11 @@ class ProcessedFrame:
 class RunResult:
     """Outcome of one ``Pipeline.run()`` call.
 
+    Annotated frames are displayed or encoded as they are produced and
+    never returned, so long videos do not accumulate in memory.
+
     Attributes:
         frame_count: Frames processed.
-        frames: Annotated frames; empty unless display or video output
-            was requested, so batch runs never hold images in memory.
     """
 
     frame_count: int
-    frames: list[np.ndarray] = field(default_factory=list)

@@ -49,6 +49,11 @@ class SynLocCalibrator(Calibrator):
         """True if a SynLoc camera model has been loaded."""
         return self._camera_matrix is not None
 
+    @property
+    def is_calibrated(self) -> bool:
+        """True with a loaded camera model or a fitted homography."""
+        return self.has_camera or super().is_calibrated
+
     def image_to_ground(self, points: np.ndarray) -> np.ndarray:
         """Convert pixel coordinates to pitch coordinates using the camera model.
 

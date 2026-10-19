@@ -51,6 +51,8 @@ class ProgressResult(BaseModel):
 
     processed: int
     total: int
+    done: bool = False
+    error: str | None = None
 
 
 class ProgressResponse(BaseModel):

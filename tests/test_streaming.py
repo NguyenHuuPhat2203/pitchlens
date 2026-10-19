@@ -30,3 +30,23 @@ def test_generator_yields_frames_until_done():
     joined = b"".join(chunks)
     assert b"f1" in joined
     assert b"f2" in joined
+
+
+def test_generator_drains_frames_put_after_done_checked():
+    session = Session(
+        session_id="a", video_path="x", total_frames=1,
+        producer=FrameProducer(maxsize=10),
+    )
+    real_get = session.producer.get
+    calls = []
+
+    def racy_get(timeout=0.5):
+        calls.append(timeout)
+        if len(calls) == 1:  # empty at first poll, then pipeline finishes
+            session.producer.put(b"late")
+            session.producer.mark_done()
+            return None
+        return real_get(timeout)
+
+    session.producer.get = racy_get
+    assert b"late" in b"".join(mjpeg_generator(session))

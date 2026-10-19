@@ -3,8 +3,8 @@
 import numpy as np
 from ultralytics import YOLO
 
+from src.backbone.gpu_utils import safe_predict
 from src.model.track import PlayerTrack
-from src.serve.pipeline.gpu_utils import safe_predict
 
 
 class Tracker:
@@ -21,6 +21,7 @@ class Tracker:
         tracker_config: str,
         device: str = "0",
         half: bool = False,
+        conf: float = 0.25,
     ) -> None:
         """Load the YOLO model with tracking configuration.
 
@@ -29,14 +30,25 @@ class Tracker:
             tracker_config: Tracker YAML filename (ocsort.yaml, etc.).
             device: PyTorch device string.
             half: Run FP16 inference.
+            conf: Minimum detection confidence (``model.detection_conf``).
         """
         self._model = YOLO(model_name)
         self._tracker_config = tracker_config
         self._device = device
         self._half = half
+        self._conf = conf
+
+    def reset(self) -> None:
+        """Forget all tracks and restart IDs (call between videos)."""
+        predictor = self._model.predictor
+        for tracker in getattr(predictor, "trackers", ()):
+            tracker.reset()
 
     def track(self, frame: np.ndarray) -> list[PlayerTrack]:
         """Detect and track persons in a single frame.
+
+        Detections the tracker has not (yet) assigned an ID to are
+        dropped, so every returned track has ``track_id >= 0``.
 
         Args:
             frame: BGR image array (height, width, 3).
@@ -51,26 +63,19 @@ class Tracker:
             quantize=16 if self._half else None,
             tracker=self._tracker_config,
             classes=[0],  # person only
-            iou=0.3,  # allow more overlap between detections
+            conf=self._conf,
             imgsz=960,  # higher resolution for small players
             verbose=False,
             persist=True,  # keep IDs across track() calls
         )
         tracks: list[PlayerTrack] = []
-        if results is None:
-            return tracks
         for result in results:
-            if result.boxes is None:
+            if result.boxes is None or result.boxes.id is None:
                 continue
             boxes = result.boxes.xyxy.cpu().numpy()
             confs = result.boxes.conf.cpu().numpy()
             classes = result.boxes.cls.cpu().numpy().astype(int)
-
-            ids = (
-                result.boxes.id.cpu().numpy().astype(int)
-                if result.boxes.id is not None
-                else [-1] * len(boxes)
-            )
+            ids = result.boxes.id.cpu().numpy().astype(int)
 
             for bbox, conf, cls_id, track_id in zip(boxes, confs, classes, ids):
                 tracks.append(

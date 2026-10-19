@@ -48,7 +48,7 @@ class TimelineBuilder:
                         TacticalEvent(
                             frame_start=candidate_start,
                             frame_end=index,
-                            type="pass",
+                            type="pass" if candidate[1] == current[1] else "turnover",
                             actor_track_id=current[0],
                             team=current[1],
                             confidence=0.7,
@@ -87,7 +87,7 @@ class TimelineBuilder:
         bx, by = frame.ball.centroid
         nearest: tuple[float, PlayerTrack] | None = None
         for player in frame.players:
-            if player.team is None:
+            if player.team in (None, "referee") or player.track_id < 0:
                 continue
             px = (player.bbox[0] + player.bbox[2]) / 2.0
             py = (player.bbox[1] + player.bbox[3]) / 2.0

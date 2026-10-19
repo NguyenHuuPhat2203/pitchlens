@@ -1,7 +1,7 @@
 """Reads video files frame by frame without buffering everything into RAM."""
 
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 import cv2
 
@@ -22,7 +22,7 @@ class VideoReader:
     """
 
     def __init__(self, path: str) -> None:
-        """Store the video path; the file is opened lazily.
+        """Store the video path and probe its frame rate.
 
         Args:
             path: Absolute or relative path to a video file.
@@ -30,6 +30,11 @@ class VideoReader:
         self._path = Path(path)
         if not self._path.exists():
             raise FileNotFoundError(f"Video file not found: {self._path}")
+        cap = cv2.VideoCapture(str(self._path))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        cap.release()
+        #: Frames per second; 25 when the container reports none.
+        self.fps = fps if fps > 0 else 25.0
 
     def __iter__(self) -> Iterator[Frame]:
         """Yield one Frame per video frame until the stream ends."""
@@ -39,16 +44,11 @@ class VideoReader:
 
         try:
             index = 0
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            if fps <= 0:
-                fps = 25.0  # sensible default for broadcast footage
-
             while True:
                 ok, image = cap.read()
                 if not ok:
                     break
-                timestamp = index / fps
-                yield Frame(index=index, timestamp=timestamp, image=image)
+                yield Frame(index=index, timestamp=index / self.fps, image=image)
                 index += 1
         finally:
             cap.release()

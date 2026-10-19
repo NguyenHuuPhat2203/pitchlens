@@ -12,3 +12,4 @@ onnxruntime-gpu>=1.20.0,<1.27  # 1.27+ on PyPI needs CUDA 13; torch cu128 ships 
 pydantic>=2.0.0
 python-multipart>=0.0.9
 structlog>=24.0.0
+yt-dlp

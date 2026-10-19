@@ -3,9 +3,12 @@
 import os
 
 import onnx
+import pytest
+import torch
 from onnx import TensorProto, helper
+from onnxruntime.capi import onnxruntime_pybind11_state as ort_state
 
-from src.serve.pipeline.gpu_utils import execution_summary, fp16_model_path
+from src.backbone.gpu_utils import execution_summary, fp16_model_path, safe_predict
 
 
 def _tiny_onnx(path) -> None:
@@ -55,3 +58,27 @@ def test_execution_summary_reports_device_half_and_providers() -> None:
     assert isinstance(summary["cuda_available"], bool)
     assert "CPUExecutionProvider" in summary["onnx_providers"]
     assert isinstance(summary["onnx_cuda"], bool)
+
+
+@pytest.mark.parametrize(
+    "error", [torch.cuda.OutOfMemoryError("oom"), ort_state.RuntimeException("oom")]
+)
+def test_safe_predict_retries_once_after_oom(error) -> None:
+    calls = []
+
+    def model(x, **kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            raise error
+        return "ok"
+
+    assert safe_predict(model, 1, device="0") == "ok"
+    assert calls == [{"device": "0"}, {"device": "0"}]
+
+
+def test_safe_predict_propagates_persistent_failure() -> None:
+    def model(x):
+        raise torch.cuda.OutOfMemoryError("oom")
+
+    with pytest.raises(torch.cuda.OutOfMemoryError):
+        safe_predict(model, 1)

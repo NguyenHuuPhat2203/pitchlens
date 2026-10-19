@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+import time
 from dataclasses import dataclass, field
 
 from src.serve.adapt.producer import FrameProducer
@@ -22,6 +23,8 @@ class Session:
     producer: FrameProducer
     thread: threading.Thread | None = None
     active_client: bool = False
+    error: str | None = None
+    last_active: float = field(default_factory=time.monotonic)
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
     def claim(self) -> bool:

@@ -19,7 +19,9 @@ pip install -r requirements.txt
 python main.py
 ```
 
-1. Click 4 pitch corners on the first frame (or press Q to skip calibration)
+1. Click 4 pitch corners on the first frame (or press Q to skip calibration).
+   The prompt only appears when `display: true`; headless runs skip it.
+   Speed assumes a static camera: the calibration is fitted once.
 2. Pipeline runs — annotated frames appear in an OpenCV window
 3. Press Q to quit
 
@@ -47,12 +49,12 @@ inside the project: `.cache/`, `weights/`, `runs/`, and `data/datasets/`.
 | Feature | Status |
 |---------|--------|
 | Player detection + tracking (OC-SORT) | Done |
-| Team classification (HSV k-means) | Done |
+| Team classification (Lab colour k-means, grass masked) | Done |
 | Ball detection + Kalman tracking | Done |
 | Shot event detection | Done |
 | Pitch calibration (4-click, desktop only) | Done |
 | Direction arrows (always on) | Done |
-| Speed overlay (km/h, calibration only) | Done |
+| Speed overlay (km/h, calibration only, foot point) | Done |
 | Annotated video output (.mp4) | Done |
 | JSON output (item schema) | Done |
 | FastAPI backend + MJPEG streaming | Done |
@@ -71,7 +73,7 @@ Pipeline tiers (hybrid layout):
 ```
 src/
 ├── backbone/       YOLO wrappers (detector, ball_detector)
-├── features/       Team classifier (HSV k-means)
+├── features/       Team classifier, timeline builder
 ├── model/          Data classes (Detection, Track, Frame, Event)
 ├── serve/
 │   ├── pipeline/   Inference engine (tracker, ball_tracker,
@@ -105,10 +107,14 @@ Then open `demo/index.html`, paste a YouTube URL, and click Analyze.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/v1/analyze` | Accept `{"url": "..."}`, returns `session_id` |
-| POST | `/v1/upload` | Multipart file upload, returns `session_id` |
-| GET | `/v1/stream/{id}` | MJPEG video stream |
-| GET | `/v1/progress/{id}` | `{processed, total}` |
+| POST | `/v1/analyze` | Accept `{"url": "..."}` (http(s) YouTube hosts only), returns `session_id` |
+| POST | `/v1/upload` | Multipart video upload (max 2 GB, must decode), returns `session_id` |
+| GET | `/v1/stream/{id}` | MJPEG video stream; `429` when `FT_MAX_SESSIONS` (default 1) streams are running |
+| GET | `/v1/progress/{id}` | `{processed, total, done, error}`; kept 30 min after the stream ends |
+
+`/v1/analyze` needs `yt-dlp` (in `requirements.txt`). CORS origins come from
+`FT_CORS_ORIGINS` (comma-separated; default `http://localhost:3000,http://localhost:5173`).
+The stream has no pitch calibration, so it shows no speed.
 
 ### Training
 
@@ -133,7 +139,8 @@ timeline:
   benchmark_json: "outputs/benchmark.json"
 ```
 
-`timeline.json` contains conservative heuristic events (`pass` and `shot`)
+`timeline.json` contains conservative heuristic events (`pass` within a team,
+`turnover` across teams, and `shot`)
 with `source: "heuristic"`. Export its events with
 `src.training.timeline_export.export_candidates` for human review before
 training. The manifest stores source-video paths and frame ranges; it does
@@ -145,27 +152,29 @@ at startup. Key sections:
 
 ```yaml
 model:
-  player_detector: "yolo26s.pt"
+  player_detector: "models/player_detector.onnx"
+  detection_conf: 0.3             # Player and ball confidence threshold
   device: "auto"                  # CUDA if available, else CPU
 
 pipeline:
   display: true                   # Show OpenCV window
-  output_video: null              # Save annotated .mp4
+  output_video: null              # Save annotated .mp4 (written frame by frame)
   output_json: null               # Save per-frame JSON
 
 team_classifier:
-  enabled: true                   # Auto-fit on first 30 frames
+  enabled: true                   # Auto-fit on first 50 frames
 
 ball_detector:
   enabled: true
+  gate_px: 150.0                  # Reject detections far from the predicted ball
 
 shot_detector:
-  angle_threshold: 30.0
-  accel_threshold: 50.0
+  angle_threshold: 30.0           # Degrees turned over 0.25 s
+  accel_threshold: 800.0          # Image px/s² over 0.25 s (uses the video's fps)
 
 calibration:
-  enabled: true                   # Click-to-calibrate
-  speed_window: 5                 # Frames for speed smoothing
+  enabled: true                   # Click-to-calibrate (display only)
+  speed_window: 12                # Frames for speed smoothing
 ```
 
 ## Output Format
@@ -198,7 +207,7 @@ Item schema (array of per-frame items):
 
 ```bash
 # Run tests
-pytest tests/ -v          # 40 tests
+pytest tests/ -q
 
 # Lint
 ruff check src/ tests/ main.py

@@ -4,7 +4,7 @@ video:
 
 model:
   player_detector: "models/player_detector.onnx"    # YOLO model for player detection.
-  detection_conf: 0.3              # Minimum confidence threshold.
+  detection_conf: 0.3              # Minimum confidence for player and ball detections.
   device: "auto"                   # "auto" = CUDA if available, else CPU.
   half: null                       # null = FP16 on CUDA, FP32 on CPU. FP16 parity: recall ≥ 0.998, IoU 0.979/0.956 (accepted).
 
@@ -12,7 +12,6 @@ pipeline:
   display: true                    # Show annotated video in window.
   output_video: null               # Path for annotated output video (null = skip).
   output_json: null                # Path for per-frame JSON output (null = skip).
-  cpu_workers: 2                   # Thread pool size for CPU-bound tasks.
 
 team_classifier:
   enabled: true                    # Whether to classify teams by jersey color.
@@ -22,13 +21,14 @@ ball_detector:
   enabled: true                    # Whether to detect and track the ball.
   model: "models/ball_detector.onnx"             # Model for ball detection.
   max_lost_frames: 15              # Frames before declaring ball lost.
+  gate_px: 150.0                   # Ignore ball detections farther than this (px) from the predicted position.
 
 shot_detector:
-  angle_threshold: 30.0            # Minimum velocity direction change (degrees).
-  accel_threshold: 50.0            # Minimum acceleration magnitude (px/s²).
+  angle_threshold: 30.0            # Minimum velocity direction change (degrees) over 0.25 s.
+  accel_threshold: 800.0           # Minimum mean acceleration over 0.25 s (image px/s², uses the video's fps).
 
 calibration:
-  enabled: true                    # Whether to use pitch calibration + speed.
+  enabled: true                    # Pitch calibration + speed (4 clicks; only when display is on). Assumes a static camera.
   speed_window: 12                 # Frames to smooth speed/direction over.
   camera_dir: null                 # SynLoc camera model directory (null=manual clicks).
 

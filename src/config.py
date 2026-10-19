@@ -21,7 +21,7 @@ class ModelConfig(BaseModel):
 
     player_detector: str = "yolo26s.pt"
     detection_conf: NonNegativeFloat = Field(default=0.3, le=1.0)
-    device: str = "auto"
+    device: str = Field(default="auto", validate_default=True)
     half: bool | None = None  # None = FP16 when device is not CPU
 
     @field_validator("device", mode="after")
@@ -44,7 +44,6 @@ class PipelineConfig(BaseModel):
     display: bool = True
     output_video: str | None = None
     output_json: str | None = None
-    cpu_workers: PositiveInt = 2
 
 
 class TeamClassifierConfig(BaseModel):
@@ -60,13 +59,14 @@ class BallDetectorConfig(BaseModel):
     enabled: bool = True
     model: str = "yolo26s.pt"
     max_lost_frames: PositiveInt = 15
+    gate_px: PositiveFloat = 150.0
 
 
 class ShotDetectorConfig(BaseModel):
-    """Shot event detection thresholds."""
+    """Shot event detection thresholds (image pixels, real video fps)."""
 
     angle_threshold: NonNegativeFloat = 30.0
-    accel_threshold: NonNegativeFloat = 50.0
+    accel_threshold: NonNegativeFloat = 800.0
 
 
 class CalibrationConfig(BaseModel):

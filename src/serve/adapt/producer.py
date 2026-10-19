@@ -10,7 +10,7 @@ class FrameProducer:
     """Bounded frame queue with stop/done flags.
 
     The pipeline thread calls ``put``; the MJPEG generator calls
-    ``get``.  Both use timeouts so neither thread blocks forever.
+    ``get``.  ``put`` blocks (never drops) until space or stop.
     """
 
     def __init__(self, maxsize: int = 100) -> None:
@@ -24,13 +24,16 @@ class FrameProducer:
         self.done = threading.Event()
         self.processed = 0
 
-    def put(self, jpeg: bytes, timeout: float = 0.5) -> None:
-        """Enqueue a frame.  Blocks up to *timeout* when full."""
-        try:
-            self._queue.put(jpeg, timeout=timeout)
+    def put(self, jpeg: bytes) -> bool:
+        """Enqueue a frame, blocking while full.  False if stopped first."""
+        while not self.stop_flag.is_set():
+            try:
+                self._queue.put(jpeg, timeout=0.1)
+            except queue.Full:
+                continue
             self.processed += 1
-        except queue.Full:
-            pass
+            return True
+        return False
 
     def get(self, timeout: float = 0.5) -> bytes | None:
         """Dequeue a frame.  Returns None on timeout."""

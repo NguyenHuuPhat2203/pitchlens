@@ -27,7 +27,13 @@ def mjpeg_generator(session: Session) -> Iterator[bytes]:
     while True:
         jpeg = session.producer.get(timeout=0.5)
         if jpeg is None:
-            if session.producer.done.is_set() or session.producer.stop_flag.is_set():
+            if session.producer.stop_flag.is_set():
                 break
-            continue
+            if session.producer.done.is_set():
+                # done is set after the last put: drain what is left.
+                jpeg = session.producer.get(timeout=0)
+                if jpeg is None:
+                    break
+            else:
+                continue
         yield format_frame(jpeg)
