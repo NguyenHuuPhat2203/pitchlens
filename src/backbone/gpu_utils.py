@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import gc
+import os
 from pathlib import Path
 
+import numpy as np
 import onnxruntime
 import torch
 from onnxruntime.capi import onnxruntime_pybind11_state as _ort_state
@@ -70,6 +72,77 @@ def fp16_model_path(model_path: str) -> str:
         model = convert_float_to_float16(onnx.load(str(src)), keep_io_types=False)
         onnx.save(model, str(dst))
     return str(dst)
+
+
+def enable_tensorrt(yolo, device: str) -> bool:
+    """Run a YOLO ONNX model on ONNX Runtime's TensorRT EP instead of CUDA.
+
+    Ultralytics always opens ONNX models on the CUDA EP, so this swaps the
+    loaded session for a TensorRT one on the same file, bound to the same
+    output buffers.  TensorRT FP16 runs the detectors ~1.8x faster with
+    matching detections (see ``research/experiments/h3-tensorrt``).
+
+    Call it after one real ``predict``/``track`` call made with the same
+    ``device``/``quantize``/``tracker`` arguments as later calls: Ultralytics
+    rebuilds its predictor (dropping this session) when those change.
+
+    Engines are cached in ``.cache/trt``; the first build of a model takes
+    several minutes.  Returns False and leaves the CUDA session in place
+    when the device is CPU, the model is not ONNX on CUDA, or the TensorRT
+    runtime (``tensorrt-cu12-libs`` 10.x) is missing or fails.
+    """
+    if device == "cpu":
+        return False
+    try:
+        import tensorrt_libs
+    except ImportError:
+        _log.info("tensorrt_unavailable", reason="tensorrt-cu12-libs not installed")
+        return False
+    os.add_dll_directory(os.path.dirname(tensorrt_libs.__file__))
+
+    if yolo.predictor is None:
+        raise ValueError("enable_tensorrt() needs one real predict/track call first")
+    backend = yolo.predictor.model.backend
+    if not getattr(backend, "use_io_binding", False):
+        return False  # not an ONNX model on the CUDA EP
+
+    from src import CACHE_DIR
+
+    cache = str(CACHE_DIR / "trt")
+    os.makedirs(cache, exist_ok=True)
+    path = backend.session._model_path
+    _log.info("tensorrt_session_start", model=path, note="first build of an engine takes minutes")
+    try:
+        session = onnxruntime.InferenceSession(path, providers=[
+            ("TensorrtExecutionProvider", {
+                "device_id": int(device),
+                "trt_fp16_enable": True,
+                "trt_engine_cache_enable": True,
+                "trt_engine_cache_path": cache,
+                "trt_timing_cache_enable": True,
+                "trt_timing_cache_path": cache,
+            }),
+            ("CUDAExecutionProvider", {"device_id": int(device)}),
+        ])
+    except (_ort_state.Fail, _ort_state.RuntimeException) as e:
+        _log.warning("tensorrt_failed", model=path, error=str(e))
+        return False
+    if session.get_providers()[0] != "TensorrtExecutionProvider":
+        _log.warning("tensorrt_failed", model=path, error="provider did not load")
+        return False
+
+    io = session.io_binding()
+    for output, buffer in zip(session.get_outputs(), backend.bindings):
+        io.bind_output(
+            name=output.name,
+            device_type="cuda",
+            device_id=int(device),
+            element_type=np.float16 if "float16" in output.type else np.float32,
+            shape=tuple(buffer.shape),
+            buffer_ptr=buffer.data_ptr(),
+        )
+    backend.session, backend.io = session, io
+    return True
 
 
 def _onnx_cuda_usable() -> bool:

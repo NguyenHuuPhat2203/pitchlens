@@ -1,0 +1,15 @@
+{
+  "player": {
+    "preprocess": 45.39,
+    "run_numpy": 14.87,
+    "run_iobind": 13.9,
+    "predict": 20.48,
+    "track": 27.0
+  },
+  "ball": {
+    "preprocess": 114.02,
+    "run_numpy": 28.61,
+    "run_iobind": 26.88,
+    "predict": 34.44
+  }
+}

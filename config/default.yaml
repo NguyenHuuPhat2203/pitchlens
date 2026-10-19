@@ -7,6 +7,7 @@ model:
   detection_conf: 0.3              # Minimum confidence for player and ball detections.
   device: "auto"                   # "auto" = CUDA if available, else CPU.
   half: null                       # null = FP16 on CUDA, FP32 on CPU. FP16 parity: recall ≥ 0.998, IoU 0.979/0.956 (accepted).
+  tensorrt: true                   # TensorRT EP for ONNX on CUDA (needs tensorrt-cu12-libs 10.x; else CUDA EP). First run builds engines (minutes), cached in .cache/trt.
 
 pipeline:
   display: true                    # Show annotated video in window.

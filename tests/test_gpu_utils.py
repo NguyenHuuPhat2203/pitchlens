@@ -1,14 +1,80 @@
-"""Tests for FP16 model conversion and device diagnostics."""
+"""Tests for FP16 model conversion, TensorRT switching, and device diagnostics."""
 
+import importlib.util
 import os
+import sys
 
+import cv2
 import onnx
 import pytest
 import torch
 from onnx import TensorProto, helper
 from onnxruntime.capi import onnxruntime_pybind11_state as ort_state
 
-from src.backbone.gpu_utils import execution_summary, fp16_model_path, safe_predict
+from src.backbone.gpu_utils import (
+    enable_tensorrt,
+    execution_summary,
+    fp16_model_path,
+    safe_predict,
+)
+
+PLAYER_ONNX = "models/player_detector.fp16.onnx"
+needs_cuda_model = pytest.mark.skipif(
+    not (torch.cuda.is_available() and os.path.exists(PLAYER_ONNX)),
+    reason="needs CUDA and the exported player model",
+)
+
+
+def _sample_frame():
+    cap = cv2.VideoCapture("data/sample.mp4")
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 200)
+    ok, frame = cap.read()
+    cap.release()
+    assert ok
+    return frame
+
+
+def _boxes(yolo):
+    r = yolo.predict(_sample_frame(), device="0", classes=[0], conf=0.3, verbose=False)[0]
+    return r.boxes.xyxy.cpu().numpy()
+
+
+@needs_cuda_model
+def test_enable_tensorrt_keeps_cuda_when_runtime_missing(monkeypatch) -> None:
+    from ultralytics import YOLO
+
+    monkeypatch.setitem(sys.modules, "tensorrt_libs", None)  # import now fails
+    yolo = YOLO(PLAYER_ONNX, task="detect")
+
+    assert enable_tensorrt(yolo, "0") is False
+    assert len(_boxes(yolo)) > 0
+    session = yolo.predictor.model.backend.session
+    assert session.get_providers()[0] == "CUDAExecutionProvider"
+
+
+@needs_cuda_model
+@pytest.mark.skipif(
+    importlib.util.find_spec("tensorrt_libs") is None, reason="TensorRT runtime not installed"
+)
+def test_enable_tensorrt_switches_provider_with_same_detections() -> None:
+    from ultralytics import YOLO
+
+    ref = _boxes(YOLO(PLAYER_ONNX, task="detect"))
+    trt = YOLO(PLAYER_ONNX, task="detect")
+    _boxes(trt)  # first real call loads the model with the production arguments
+
+    assert enable_tensorrt(trt, "0") is True
+    got = _boxes(trt)
+    assert trt.predictor.model.backend.session.get_providers()[0] == "TensorrtExecutionProvider"
+    assert len(got) == pytest.approx(len(ref), abs=1)
+    for box in ref:
+        assert abs(got - box).max(axis=1).min() < 3.0  # every reference box found within 3 px
+
+
+def test_enable_tensorrt_is_a_noop_on_cpu() -> None:
+    from ultralytics import YOLO
+
+    assert enable_tensorrt(YOLO("yolo26s.pt"), "cpu") is False
 
 
 def _tiny_onnx(path) -> None:

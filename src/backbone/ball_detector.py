@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 from ultralytics import YOLO
 
-from src.backbone.gpu_utils import safe_predict
+from src.backbone.gpu_utils import enable_tensorrt, safe_predict
 from src.model.detection import Detection
 
 
@@ -23,6 +23,7 @@ class BallDetector:
         device: str = "0",
         half: bool = False,
         conf: float = 0.25,
+        tensorrt: bool = False,
     ) -> None:
         """Load the YOLO model.
 
@@ -31,11 +32,15 @@ class BallDetector:
             device: PyTorch device string.
             half: Run FP16 inference.
             conf: Minimum detection confidence (``model.detection_conf``).
+            tensorrt: Run an ONNX model on the TensorRT EP when available.
         """
         self._model = YOLO(model_name)
         self._device = device
         self._half = half
         self._conf = conf
+        if tensorrt and device != "cpu":
+            self.detect_balls(np.zeros((64, 64, 3), dtype=np.uint8))  # load with real args
+            enable_tensorrt(self._model, device)
 
     def detect_balls(self, frame: np.ndarray) -> list[Detection]:
         """Run inference and return every ball candidate above ``conf``.

@@ -64,6 +64,7 @@ class Pipeline:
             device=device,
             half=half,
             conf=model_cfg.detection_conf,
+            tensorrt=model_cfg.tensorrt,
         )
         self._renderer = Renderer()
         self._writer = OutputWriter()
@@ -79,6 +80,7 @@ class Pipeline:
             device=device,
             half=half,
             conf=model_cfg.detection_conf,
+            tensorrt=model_cfg.tensorrt,
         ) if self._ball_enabled else None
 
         calib_cfg = config.calibration

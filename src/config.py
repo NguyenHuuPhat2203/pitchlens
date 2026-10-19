@@ -23,6 +23,7 @@ class ModelConfig(BaseModel):
     detection_conf: NonNegativeFloat = Field(default=0.3, le=1.0)
     device: str = Field(default="auto", validate_default=True)
     half: bool | None = None  # None = FP16 when device is not CPU
+    tensorrt: bool = True  # ONNX on TensorRT EP when tensorrt-cu12-libs is installed
 
     @field_validator("device", mode="after")
     @classmethod

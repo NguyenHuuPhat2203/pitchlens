@@ -1,0 +1,40 @@
+{
+  "player_detector": {
+    "cuda_fp16_ms": 14.77,
+    "trt_from_onnx": {
+      "ms": 8.6,
+      "first_run_s": 0.1,
+      "speedup": 1.72,
+      "ref_boxes": 4691,
+      "recall": 0.9979,
+      "mean_iou": 0.978
+    },
+    "trt_from_fp16.onnx": {
+      "ms": 8.1,
+      "first_run_s": 0.0,
+      "speedup": 1.82,
+      "ref_boxes": 4691,
+      "recall": 0.9977,
+      "mean_iou": 0.9973
+    }
+  },
+  "ball_detector": {
+    "cuda_fp16_ms": 22.64,
+    "trt_from_onnx": {
+      "ms": 12.75,
+      "first_run_s": 0.0,
+      "speedup": 1.78,
+      "ref_boxes": 231,
+      "recall": 0.9913,
+      "mean_iou": 0.951
+    },
+    "trt_from_fp16.onnx": {
+      "ms": 13.3,
+      "first_run_s": 0.0,
+      "speedup": 1.7,
+      "ref_boxes": 231,
+      "recall": 0.9957,
+      "mean_iou": 0.9941
+    }
+  }
+}

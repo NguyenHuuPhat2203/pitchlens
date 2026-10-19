@@ -40,6 +40,18 @@ With CUDA, inference runs in FP16 by default (`model.half: null`). The
 pipeline converts each `.onnx` model once to a cached `*.fp16.onnx` beside
 it. Set `model.half: false` to force FP32.
 
+For another ~24% speed-up, install the TensorRT runtime (optional, ~1 GB, must be 10.x):
+
+```bash
+.venv/Scripts/python.exe -m pip install "tensorrt-cu12-libs==10.16.1.11"
+```
+
+With it, both detectors run on ONNX Runtime's TensorRT EP (`model.tensorrt: true`).
+The first run builds the engines (several minutes per model) and caches
+them in `.cache/trt/`; later runs start in seconds. Without the package, or
+with `model.tensorrt: false`, the CUDA EP is used. Measurements:
+`research/experiments/h3b-trt-end-to-end/analysis.md`.
+
 Model downloads, Ultralytics settings, and torch / Hugging Face caches stay
 inside the project: `.cache/`, `weights/`, `runs/`, and `data/datasets/`.
 `import src` sets this up; the local notebooks do the same in their first cell.
