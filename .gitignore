@@ -15,3 +15,4 @@ runs/
 drive_checkpoints/
 research/**/frames.json
 research/**/timeline.json
+promo/build/

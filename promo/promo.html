@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Football Tracker — demo</title>
+<style>
+:root {
+  --bg: #05080d; --ink: #eef3f8; --mute: #96a4b5; --line: rgba(255, 255, 255, .1);
+  --lime: #b8f53b; --card: #0c131c;
+  --display: "Bahnschrift", "Segoe UI Variable Display", "Segoe UI", sans-serif;
+  --text: "Segoe UI Variable Text", "Segoe UI", sans-serif;
+  --mono: "Cascadia Mono", Consolas, monospace;
+}
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; background: #000; overflow: hidden; }
+#stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--text); transform-origin: 0 0; }
+.abs { position: absolute; }
+.scene, .layer { position: absolute; inset: 0; display: none; }
+.glow { position: absolute; left: 0; top: 0; width: 1100px; height: 1100px; border-radius: 50%; }
+.title { position: absolute; left: 88px; top: 84px; }
+.kicker { font: 600 22px/1 var(--display); letter-spacing: .26em; color: var(--lime); text-transform: uppercase; }
+.h1 { font: 700 66px/1.06 var(--display); margin-top: 18px; }
+.sub { font: 400 28px/1.45 var(--text); color: var(--mute); }
+.chip { display: inline-flex; align-items: center; gap: 10px; padding: 10px 18px; border: 1px solid var(--line); border-radius: 999px; font: 500 20px/1 var(--mono); color: #d3dce6; background: rgba(255, 255, 255, .04); }
+.box { background: var(--card); border: 1px solid var(--line); border-radius: 22px; box-shadow: 0 30px 80px rgba(0, 0, 0, .45); }
+.mono { font-family: var(--mono); }
+.code { font: 400 16px/1.5 var(--mono); color: #c8d3df; white-space: pre; }
+.code .k { color: #7dd3fc; } .code .s { color: var(--lime); } .code .n { color: #fbbf24; }
+
+.mark .corner path { fill: none; stroke: var(--lime); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.mark .ring { fill: none; stroke: #fff; stroke-width: 6; stroke-dasharray: 132; }
+.mark .dot { fill: #fff; }
+.wordmark { font: 700 112px/1 var(--display); letter-spacing: .07em; margin-top: 34px; }
+.wordmark span { display: inline-block; white-space: pre; }
+
+.node { position: absolute; top: 400px; width: 212px; height: 236px; padding: 26px 18px; border-radius: 22px; background: var(--card); border: 1px solid var(--line); text-align: center; }
+.node .nn { position: absolute; left: 16px; top: 14px; font: 600 15px var(--mono); color: #5d6b7c; }
+.node svg { width: 64px; height: 64px; color: #8796a8; margin-top: 8px; }
+.node.on { border-color: rgba(184, 245, 59, .75); }
+.node.on svg { color: var(--lime); }
+.node .nt { font: 700 30px/1 var(--display); margin-top: 22px; }
+.node .ns { font: 400 16px/1.35 var(--mono); color: var(--mute); margin-top: 12px; }
+
+.panel { position: absolute; left: 1352px; top: 236px; width: 480px; }
+.stat { padding: 22px 0 22px 26px; border-left: 3px solid var(--lime); margin-bottom: 22px; background: linear-gradient(90deg, rgba(184, 245, 59, .07), transparent 80%); }
+.big { font: 700 76px/1 var(--display); }
+.big.sm { font-size: 40px; }
+.lbl { font: 400 22px/1.42 var(--text); color: var(--mute); margin-top: 10px; }
+.lbl b { color: var(--ink); font-weight: 600; }
+.hud { display: flex; gap: 16px; align-items: center; font: 600 16px/1 var(--mono); color: #dbe4ee; }
+.live { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 8px; background: rgba(184, 245, 59, .14); color: var(--lime); letter-spacing: .08em; }
+.live i { width: 9px; height: 9px; border-radius: 50%; background: var(--lime); display: inline-block; }
+.tg { font: 700 12.5px "Cascadia Mono", Consolas, monospace; fill: #05080d; }
+.pill { font: 700 20px Bahnschrift, sans-serif; letter-spacing: .05em; fill: #fff; }
+.num { font: 700 17px Bahnschrift, sans-serif; fill: #05080d; text-anchor: middle; }
+.lane { font: 700 22px Bahnschrift, sans-serif; letter-spacing: .14em; }
+.tick { font: 500 17px "Cascadia Mono", Consolas, monospace; fill: #8b98a8; text-anchor: middle; }
+.ph { font: 700 18px "Cascadia Mono", Consolas, monospace; fill: #b8f53b; text-anchor: middle; }
+
+.tcol { width: 149px; border-top: 4px solid; padding-top: 16px; }
+.th { display: flex; align-items: center; gap: 10px; }
+.sw { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .3); }
+.tn { font: 700 28px/1 var(--display); }
+.ts { font: 500 16px/1.35 var(--mono); color: var(--mute); margin-top: 8px; min-height: 44px; }
+.tcol img { display: block; width: 72px; height: 132px; border-radius: 10px; margin: 12px 0 0; border: 2px solid; }
+
+.kmh { font: 700 84px/1 var(--display); }
+.kmhu { font: 600 26px var(--display); color: var(--mute); margin-left: 10px; }
+.ctr { display: flex; align-items: center; gap: 14px; }
+.cn { font: 700 54px/1 var(--display); }
+.cl { font: 400 22px var(--text); color: var(--mute); }
+.bul { display: flex; gap: 16px; align-items: baseline; font: 400 25px/1.4 var(--text); color: #d6dee8; margin-bottom: 16px; }
+.bul b { color: var(--lime); font-weight: 700; }
+
+.row { position: absolute; left: 120px; width: 1180px; height: 70px; display: flex; align-items: center; gap: 18px; }
+.rl { width: 420px; flex: none; font: 600 28px/1.1 var(--display); color: #dbe3ec; }
+.bar { height: 46px; flex: none; border-radius: 10px; background: linear-gradient(90deg, #2a3646, #3c4b60); }
+.row.step .bar { background: linear-gradient(90deg, rgba(127, 191, 31, .55), rgba(184, 245, 59, .75)); }
+.row.win .bar { background: linear-gradient(90deg, #7fbf1f, var(--lime)); box-shadow: 0 0 30px rgba(184, 245, 59, .35); }
+.rv { font: 700 30px/1 var(--display); min-width: 120px; }
+.rd { font-size: 18px; color: var(--lime); padding: 8px 14px; }
+.kpi { font: 700 168px/1 var(--display); letter-spacing: -.02em; }
+.kpiu { font: 600 40px var(--display); color: var(--mute); margin-left: 14px; }
+.fps { font: 700 64px/1 var(--display); color: var(--lime); margin-top: 18px; }
+
+.ocard { position: absolute; top: 250px; width: 540px; height: 385px; padding: 22px 24px; }
+.of { font: 600 22px/1 var(--mono); color: var(--lime); }
+.od { font: 400 19px/1.4 var(--text); color: var(--mute); margin: 8px 0 16px; }
+.thumb { position: relative; width: 492px; height: 277px; border-radius: 12px; overflow: hidden; }
+.thumb img, .thumb svg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.termbar { display: flex; align-items: center; gap: 9px; padding: 14px 20px; border-bottom: 1px solid var(--line); font: 500 17px var(--mono); color: var(--mute); }
+.termbar i { width: 12px; height: 12px; border-radius: 50%; background: #2b3645; display: inline-block; }
+.termbar span { margin-left: 14px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bg" class="abs" style="inset:0">
+    <div id="glowA" class="glow" style="background:radial-gradient(circle, rgba(184,245,59,.13), transparent 62%)"></div>
+    <div id="glowB" class="glow" style="background:radial-gradient(circle, rgba(61,216,255,.11), transparent 62%)"></div>
+    <svg class="abs" width="1920" height="1080" style="left:0;top:0">
+      <g fill="none" stroke="rgba(255,255,255,.035)" stroke-width="2">
+        <circle cx="960" cy="540" r="250"/><line x1="960" y1="0" x2="960" y2="1080"/>
+        <rect x="-220" y="230" width="430" height="620"/><rect x="1710" y="230" width="430" height="620"/>
+      </g>
+    </svg>
+    <div class="abs" style="inset:0;background:radial-gradient(ellipse at 50% 45%, transparent 50%, rgba(0,0,0,.6))"></div>
+  </div>
+
+  <section id="s-intro" class="scene">
+    <img id="introbg" class="abs" alt="" style="left:-64px;top:-36px;width:2048px;height:1152px;object-fit:cover;filter:blur(9px) saturate(1.2) brightness(.5)">
+    <div class="abs" style="inset:0;background:radial-gradient(ellipse at 50% 46%, rgba(5,8,13,.2), rgba(5,8,13,.94) 72%)"></div>
+    <div id="introwrap" class="abs" style="left:0;right:0;top:226px;text-align:center">
+      <svg id="mark" class="mark" width="168" height="168" viewBox="0 0 100 100"></svg>
+      <div id="wordmark" class="wordmark"></div>
+      <div id="tagline" class="sub" style="font-size:34px;color:#cdd7e2;margin-top:22px">Biến video trận đấu thành dữ liệu chiến thuật</div>
+      <div id="introchips" style="margin-top:46px;display:flex;gap:14px;justify-content:center">
+        <span class="chip">YOLO26</span><span class="chip">OC-SORT</span><span class="chip">TensorRT FP16</span><span class="chip">FastAPI</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="s-flow" class="scene">
+    <div class="title"><div class="kicker" data-at=".1">Cách hoạt động</div><div class="h1" data-at=".2">Một video vào, dữ liệu từng frame ra</div></div>
+    <svg class="abs" width="1920" height="1080" style="left:0;top:0">
+      <defs><filter id="softglow" x="-200%" y="-200%" width="500%" height="500%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      <line id="flowbase" y1="518" y2="518" stroke="rgba(255,255,255,.16)" stroke-width="2" stroke-dasharray="6 8"/>
+      <line id="flowlit" y1="518" y2="518" stroke="#b8f53b" stroke-width="3"/>
+      <circle id="pulse" cy="518" r="8" fill="#b8f53b" filter="url(#softglow)"/>
+    </svg>
+    <div id="nodes"></div>
+    <div class="abs sub" data-at="3.4" style="left:110px;top:700px">Chạy offline trên GPU laptop, hoặc stream kết quả qua API.</div>
+  </section>
+
+  <div id="footage" class="layer">
+    <div id="card" class="abs" style="left:88px;top:236px;width:1216px;height:684px;border-radius:22px;overflow:hidden;background:#000;box-shadow:0 40px 90px rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.12)">
+      <img id="frame" class="abs" alt="" style="left:0;top:0;width:1280px;height:720px;transform-origin:0 0">
+      <svg id="ov" class="abs" width="1216" height="684" style="left:0;top:0">
+        <defs>
+          <linearGradient id="scanG" x1="0" x2="1"><stop offset="0" stop-color="#b8f53b" stop-opacity="0"/><stop offset=".5" stop-color="#b8f53b" stop-opacity=".55"/><stop offset="1" stop-color="#b8f53b" stop-opacity="0"/></linearGradient>
+          <radialGradient id="ballG"><stop offset="0" stop-color="#ffffff" stop-opacity=".95"/><stop offset=".45" stop-color="#b8f53b" stop-opacity=".45"/><stop offset="1" stop-color="#b8f53b" stop-opacity="0"/></radialGradient>
+          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4"/></filter>
+        </defs>
+        <g id="ovg"></g>
+      </svg>
+      <div class="abs" style="left:0;right:0;top:0;height:92px;background:linear-gradient(rgba(5,8,13,.88),rgba(5,8,13,0))"></div>
+      <div class="abs hud" style="left:22px;top:22px"><span class="live"><i id="livedot"></i>ĐANG PHÂN TÍCH</span><span id="tc"></span></div>
+      <div id="mode" class="abs chip" style="right:20px;top:16px;font-size:17px"></div>
+      <div id="flash" class="abs" style="inset:0;background:#fff;opacity:0"></div>
+    </div>
+  </div>
+
+  <section id="s-track" class="scene">
+    <div class="title"><div class="kicker" data-at=".2">01 · Theo dõi cầu thủ</div><div class="h1" data-at=".3">Mỗi cầu thủ một ID, bám theo từng frame</div></div>
+    <div class="panel">
+      <div class="stat" data-at="1.2"><div class="big" id="trackCount">0</div><div class="lbl">người trong frame này · trung bình <b id="peopleAvg"></b> người/frame</div></div>
+      <div class="stat" data-at="1.5"><div class="big sm">OC-SORT</div><div class="lbl">Giữ nguyên ID qua va chạm và che khuất ngắn</div></div>
+      <div class="stat" data-at="1.8"><div class="big sm">YOLO26 · 960 px</div><div class="lbl">Phát hiện người trên GPU bằng TensorRT FP16</div></div>
+    </div>
+  </section>
+
+  <section id="s-teams" class="scene">
+    <div class="title"><div class="kicker" data-at=".2">02 · Phân đội tự động</div><div class="h1" data-at=".3">Nhận ra đội qua màu áo, không cần gán nhãn</div></div>
+    <div class="panel">
+      <div id="teamcols" style="display:flex;gap:16px"></div>
+      <div class="lbl" data-at="3.0" style="margin-top:26px">K-means trên màu Lab của phần thân áo, bỏ pixel cỏ. Tự học trong 50 frame đầu của video.</div>
+    </div>
+  </section>
+
+  <section id="s-ball" class="scene">
+    <div class="title"><div class="kicker" data-at=".2">03 · Bóng &amp; sự kiện</div><div class="h1" data-at=".3">Bám quả bóng chỉ vài pixel</div></div>
+    <div class="panel">
+      <div class="stat" data-at="1.0"><div class="big" id="ballPct"></div><div class="lbl">số frame có vị trí bóng (<span id="ballCount"></span>)</div></div>
+      <div class="stat" data-at="1.3"><div class="big sm">Kalman + cổng 150 px</div><div class="lbl">Phát hiện mỗi 2 frame, nội suy phần còn lại, bỏ qua phát hiện nhảy xa</div></div>
+      <div class="stat" data-at="1.6"><div class="big sm">Chuyền · mất bóng · sút</div><div class="lbl">Đổi người giữ bóng và gia tốc của bóng thành sự kiện</div></div>
+    </div>
+  </section>
+
+  <section id="s-speed" class="scene">
+    <div class="title"><div class="kicker" data-at=".1">04 · Tốc độ &amp; hướng chạy</div><div class="h1" data-at=".2">4 điểm hiệu chỉnh → km/h và hướng chạy</div></div>
+    <div class="abs chip" data-at=".4" style="left:1662px;top:92px">MINH HOẠ</div>
+    <div class="abs kicker" data-at=".5" style="left:120px;top:282px;color:var(--mute);font-size:19px">Ảnh camera · bấm 4 góc sân</div>
+    <div class="abs kicker" data-at=".5" style="left:1160px;top:282px;color:var(--mute);font-size:19px">Sơ đồ sân · 105 × 68 m</div>
+    <div id="persp" class="abs" data-at=".5" style="left:110px;top:320px;width:900px;height:560px;perspective:1100px">
+      <svg id="pitchL" class="abs" viewBox="-3 -3 111 74" style="left:70px;top:30px;width:760px;height:507px;transform:rotateX(52deg);transform-origin:50% 50%"></svg>
+    </div>
+    <svg id="pitchR" class="abs" data-at=".6" viewBox="-3 -3 111 74" style="left:1160px;top:330px;width:640px;height:427px"></svg>
+    <svg id="links" class="abs" width="1920" height="1080" style="left:0;top:0;overflow:visible"></svg>
+    <div class="abs box" data-at="3.0" style="left:1160px;top:790px;width:640px;height:130px;display:flex;align-items:center;padding:0 34px;gap:40px">
+      <div><span id="kmh" class="kmh">0.0</span><span class="kmhu">km/h</span></div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <svg width="56" height="56" viewBox="-28 -28 56 56"><circle r="26" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="2"/><g id="dirArrow"><line x1="-14" y1="0" x2="13" y2="0" stroke="#b8f53b" stroke-width="4" stroke-linecap="round"/><path d="M6 -8 L15 0 L6 8" fill="none" stroke="#b8f53b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></g></svg>
+        <div><div class="lbl" style="margin:0">hướng chạy</div><div id="dirdeg" class="mono" style="font-size:26px;font-weight:600">0°</div></div>
+      </div>
+    </div>
+    <div class="abs sub" data-at="3.4" style="left:120px;top:880px;width:960px;font-size:23px">Homography đổi pixel thành mét. Camera tĩnh: hiệu chỉnh một lần; có camera model SynLoc thì không cần bấm.</div>
+  </section>
+
+  <section id="s-timeline" class="scene">
+    <div class="title"><div class="kicker" data-at=".1">05 · Timeline chiến thuật</div><div class="h1" data-at=".2">Mọi pha bóng thành sự kiện có cấu trúc</div></div>
+    <svg id="tl" class="abs" width="1920" height="1080" style="left:0;top:0">
+      <defs><filter id="tlglow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      <g id="tlg"></g>
+    </svg>
+    <div class="abs" data-at=".6" style="left:250px;top:600px;display:flex;gap:56px">
+      <div class="ctr"><svg width="22" height="22" viewBox="-11 -11 22 22"><circle r="8" fill="#eef3f8"/></svg><span id="c-pass" class="cn">0</span><span class="cl">chuyền</span></div>
+      <div class="ctr"><svg width="24" height="24" viewBox="-12 -12 24 24"><path d="M0 -10 L10 0 L0 10 L-10 0 Z" fill="none" stroke="#eef3f8" stroke-width="3"/></svg><span id="c-turnover" class="cn">0</span><span class="cl">mất bóng</span></div>
+      <div class="ctr"><svg width="30" height="30" viewBox="-15 -15 30 30"><path id="starIcon" fill="#b8f53b"/></svg><span id="c-shot" class="cn">0</span><span class="cl">cú sút</span></div>
+    </div>
+    <div class="abs" style="left:250px;top:715px;width:780px">
+      <div class="bul" data-at="5.0"><b>→</b><span><span class="mono" style="color:var(--lime)">timeline.json</span>: loại, frame, cầu thủ, đội, độ tin cậy</span></div>
+      <div class="bul" data-at="5.3"><b>→</b><span><span class="mono" style="color:var(--lime)">export_candidates()</span> → JSONL cho người gán nhãn</span></div>
+      <div class="bul" data-at="5.6"><b>→</b><span>Sẵn sàng làm dữ liệu huấn luyện model nhận diện hành động</span></div>
+    </div>
+    <div class="abs box" data-at="4.3" style="left:1080px;top:610px;width:720px;height:350px;overflow:hidden">
+      <div class="termbar"><i></i><i></i><i></i><span id="jsonTitle"></span></div>
+      <div id="jsonLines" class="code" style="font-size:18px;padding:14px 28px"></div>
+    </div>
+  </section>
+
+  <section id="s-perf" class="scene">
+    <div class="title"><div class="kicker" data-at=".1">06 · Hiệu năng</div><div class="h1" data-at=".2">Nhanh gấp 1.9×, kết quả được kiểm chứng</div></div>
+    <div id="bars"></div>
+    <div class="abs" data-at=".5" style="left:1380px;top:290px;width:440px">
+      <div class="kicker" style="color:var(--mute);font-size:19px">Mỗi frame</div>
+      <div style="margin-top:16px"><span id="kpi" class="kpi">52.3</span><span class="kpiu">ms</span></div>
+      <div id="fps" class="fps">19 fps</div>
+      <div class="chip" data-at="4.4" style="margin-top:30px;font-size:24px;color:var(--lime);border-color:rgba(184,245,59,.5)">1.9× nhanh hơn</div>
+    </div>
+    <div class="abs lbl" data-at="4.6" style="left:120px;top:880px;width:1680px;font-size:19px">RTX 3050 Ti Laptop · clip 1505 frame 1280×720 · chỉ xuất JSON · mỗi bước đo xen kẽ với bước trước · bóng và cú sút trùng khớp, recall cầu thủ ≥ 0.996 ở mọi bước</div>
+  </section>
+
+  <section id="s-outputs" class="scene">
+    <div class="title"><div class="kicker" data-at=".1">07 · Tích hợp</div><div class="h1" data-at=".2">Xuất file, hoặc gọi qua API</div></div>
+    <div class="ocard box" data-at=".5" style="left:120px">
+      <div class="of">video.mp4</div><div class="od">Video có chú thích: box, ID, đội, bóng</div>
+      <div class="thumb"><img id="thumb" alt=""><svg id="thumbov" viewBox="0 0 1280 720"></svg></div>
+    </div>
+    <div class="ocard box" data-at=".65" style="left:690px">
+      <div class="of">frames.json</div><div class="od">Mỗi frame: cầu thủ, đội, bóng, sự kiện</div>
+      <pre id="snipFrame" class="code"></pre>
+    </div>
+    <div class="ocard box" data-at=".8" style="left:1260px">
+      <div class="of">timeline.json</div><div class="od">Sự kiện theo thời gian</div>
+      <pre id="snipEvents" class="code"></pre>
+    </div>
+    <div class="abs box" data-at="1.2" style="left:120px;top:660px;width:1680px;height:285px">
+      <div class="termbar"><i></i><i></i><i></i><span>API · FastAPI + MJPEG</span></div>
+      <pre id="term" class="code" style="font-size:22px;line-height:1.6;padding:16px 30px"></pre>
+    </div>
+  </section>
+
+  <section id="s-outro" class="scene">
+    <div class="abs" style="left:0;right:0;top:300px;text-align:center">
+      <svg id="outromark" class="mark" width="120" height="120" viewBox="0 0 100 100"></svg>
+      <div class="wordmark" data-at=".25" style="font-size:96px;margin-top:30px">FOOTBALL TRACKER</div>
+      <div class="sub" data-at=".45" style="font-size:32px;color:#cdd7e2;margin-top:20px">Phân tích trận đấu từ video, ngay trên GPU laptop</div>
+      <div data-at=".65" style="margin-top:40px;display:flex;gap:14px;justify-content:center">
+        <span class="chip">Python</span><span class="chip">YOLO26</span><span class="chip">OC-SORT</span><span class="chip">TensorRT</span><span class="chip">FastAPI</span>
+      </div>
+    </div>
+  </section>
+
+  <div id="footer" class="abs" style="left:0;top:0;width:1920px;height:1080px;pointer-events:none">
+    <div class="abs" style="left:88px;top:1006px;display:flex;align-items:center;gap:12px;font:700 17px/1 var(--display);letter-spacing:.22em;color:#c3cdd8"><svg class="mark" width="24" height="24" viewBox="0 0 100 100"></svg>FOOTBALL TRACKER</div>
+    <div id="chapter" class="abs" style="right:88px;top:1010px;font:500 17px/1 var(--mono);color:var(--mute);letter-spacing:.06em"></div>
+    <div class="abs" style="left:88px;width:1744px;top:1046px;height:3px;border-radius:2px;background:rgba(255,255,255,.08)"><div id="progress" style="height:100%;width:0;border-radius:2px;background:var(--lime)"></div></div>
+  </div>
+  <div id="black" class="abs" style="inset:0;background:#000;opacity:0"></div>
+</div>
+
+<script src="build/data.js"></script>
+<script>
+const W = 1920, H = 1080, CW = 1216, CH = 684, FW = 1280, FH = 720, VFPS = 25;
+window.DURATION = 65;
+const TEAM = { A: '#ff4d5e', B: '#f4f7fb', referee: '#fbbf24' };
+const LIME = '#b8f53b', GREY = '#94a3b8';
+const $ = s => document.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const C = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const E = {
+  lin: x => x,
+  out: x => 1 - (1 - x) ** 3,
+  io: x => (x < .5 ? 4 * x ** 3 : 1 - (-2 * x + 2) ** 3 / 2),
+  back: x => 1 + 2.70158 * (x - 1) ** 3 + 1.70158 * (x - 1) ** 2,
+};
+const K = (lt, at, dur = .6, e = E.out) => e(C((lt - at) / dur));
+const lerp = (a, b, q) => a + (b - a) * q;
+const rise = (el, q, dy = 26) => { el.style.opacity = C(q); el.style.transform = `translateY(${((1 - q) * dy).toFixed(2)}px)`; };
+const tc = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${(s % 60).toFixed(2).padStart(5, '0')}`;
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const hl = s => esc(s).replace(/("[^"]*")(\s*:)/g, '<span class="k">$1</span>$2').replace(/(:\s*)("[^"]*")/g, '$1<span class="s">$2</span>').replace(/(-?\b\d+(?:\.\d+)?)\b/g, '<span class="n">$1</span>');
+const f1 = v => v.toFixed(1);
+let SCALE = 1;
+
+const MARK = '<g class="corner"><path d="M6 28 V6 H28"/></g><g class="corner"><path d="M72 6 H94 V28"/></g><g class="corner"><path d="M94 72 V94 H72"/></g><g class="corner"><path d="M28 94 H6 V72"/></g><circle class="ring" cx="50" cy="50" r="21"/><circle class="dot" cx="50" cy="50" r="6"/>';
+const ICON = {
+  video: '<rect x="6" y="11" width="36" height="26" rx="5"/><path d="M21 19 L30 24 L21 29 Z" fill="currentColor"/>',
+  detect: '<path d="M8 16 V8 H16 M32 8 H40 V16 M40 32 V40 H32 M16 40 H8 V32"/><circle cx="24" cy="19" r="4"/><path d="M17 34 C18 27 30 27 31 34"/>',
+  track: '<path d="M8 38 C16 34 20 18 38 12" stroke-dasharray="3 4"/><circle cx="8" cy="38" r="3"/><circle cx="21" cy="25" r="3"/><circle cx="38" cy="12" r="4" fill="currentColor"/>',
+  teams: '<circle cx="18" cy="24" r="10"/><circle cx="30" cy="24" r="10"/>',
+  ball: '<circle cx="24" cy="24" r="15"/><path d="M24 17 L30.6 21.8 L28.1 29.6 H19.9 L17.4 21.8 Z"/>',
+  events: '<path d="M13 41 V7"/><path d="M13 8 H35 L30 15 L35 22 H13"/>',
+  out: '<path d="M14 6 H28 L36 14 V42 H14 Z"/><path d="M28 6 V14 H36"/><path d="M19 24 H31 M19 30 H31 M19 36 H26"/>',
+};
+const NODES = [
+  ['video', 'Video', 'MP4 · YouTube'], ['detect', 'Phát hiện', 'YOLO26 · TensorRT'], ['track', 'Theo dõi', 'OC-SORT'],
+  ['teams', 'Phân đội', 'Lab k-means'], ['ball', 'Bóng', 'Kalman + gating'], ['events', 'Sự kiện', 'chuyền · sút'],
+  ['out', 'Xuất', 'MP4 · JSON · API'],
+];
+const NODE_W = 212, NODE_GAP = 36, NODE_X0 = (W - (7 * NODE_W + 6 * NODE_GAP)) / 2;
+const nodeCx = i => NODE_X0 + i * (NODE_W + NODE_GAP) + NODE_W / 2;
+// Shipped states on sample.mp4 (research/findings.md); deltas are from the interleaved run of each step.
+const STEPS = [
+  ['Ban đầu · CUDA FP16', 52.31, ''], ['+ TensorRT FP16', 39.85, '−12.5 ms'], ['+ Bóng chạy song song', 36.93, '−3.1 ms'],
+  ['+ Letterbox trên GPU', 32.45, '−5.4 ms'], ['+ OC-SORT theo lô', 27.55, '−4.5 ms'],
+];
+const TERM = [
+  ['$ uvicorn src.serve.adapt.app:create_app --factory --port 8000'],
+  ['POST /v1/analyze', '{"url": "https://www.youtube.com/watch?v=…"}', '→ session_id'],
+  ['POST /v1/upload', 'video.mp4 (tối đa 2 GB)', '→ session_id'],
+  ['GET  /v1/stream/{id}', 'MJPEG: xem video được phân tích ngay khi chạy'],
+  ['GET  /v1/progress/{id}', '{"processed": 812, "total": 1505, "done": false}'],
+].map(([a, b = '', c = '']) => c ? a.padEnd(24) + b.padEnd(49) + c : b ? a.padEnd(24) + b : a);
+const SCENES = [
+  ['intro', 0, 4.5, '', intro],
+  ['flow', 4.5, 10, 'CÁCH HOẠT ĐỘNG', flow],
+  ['track', 10, 17.5, '01 / 07 · THEO DÕI CẦU THỦ', () => {}],
+  ['teams', 17.5, 24.5, '02 / 07 · PHÂN ĐỘI', () => {}],
+  ['ball', 24.5, 32, '03 / 07 · BÓNG & SỰ KIỆN', () => {}],
+  ['speed', 32, 38.5, '04 / 07 · TỐC ĐỘ', speed],
+  ['timeline', 38.5, 47.5, '05 / 07 · TIMELINE', timeline],
+  ['perf', 47.5, 56, '06 / 07 · HIỆU NĂNG', perf],
+  ['outputs', 56, 61.5, '07 / 07 · TÍCH HỢP', outputs],
+  ['outro', 61.5, 65, '', outro],
+];
+const FOOT = [
+  { t0: 10, t1: 17.5, start: 0, speed: 1, zoom: [1.1, 1.32], follow: 'players', mode: 'track', chip: 'OC-SORT' },
+  { t0: 17.5, t1: 24.5, start: 1322, speed: 1, zoom: [1.2, 1.38], follow: 'players', mode: 'teams', chip: 'LAB K-MEANS' },
+  { t0: 24.5, t1: 32, start: 140, speed: .5, zoom: [1.75, 1.9], follow: 'ball', mode: 'ball', chip: '0.5× CHẬM' },
+];
+
+const IDX = {};
+for (const n in DATA.frames) IDX[n] = new Map(DATA.frames[n].p.map(r => [r[0], r]));
+function smooth(pick, win) {
+  const raw = {}, out = {};
+  for (const n in DATA.frames) { const v = pick(DATA.frames[n]); if (v) raw[n] = v; }
+  for (const n in DATA.frames) {
+    let sx = 0, sy = 0, c = 0;
+    for (let j = -win; j <= win; j++) { const v = raw[+n + j]; if (v) { sx += v[0]; sy += v[1]; c++; } }
+    if (c) out[n] = [sx / c, sy / c];
+  }
+  return out;
+}
+const PLAYC = smooth(F => F.p.length ? [F.p.reduce((a, p) => a + p[1] + p[3], 0) / 2 / F.p.length, F.p.reduce((a, p) => a + p[2] + p[4], 0) / 2 / F.p.length] : null, 30);
+const BALLC = smooth(F => F.b, 10);
+// Only passes are called out: in this clip the possession heuristic also flags two
+// turnovers while the long ball flies past an opponent.
+const PASSES = DATA.timeline.filter(e => e[1] === 'pass' && e[0] >= FOOT[2].start && e[0] < 236);
+
+function camera(pos, sh, q) {
+  const s = CW / FW * lerp(sh.zoom[0], sh.zoom[1], E.io(C(q)));
+  const tab = sh.follow === 'ball' ? BALLC : PLAYC, i = Math.floor(pos);
+  const a = tab[i] || [FW / 2, FH / 2], b = tab[i + 1] || a, f = pos - i;
+  const hw = CW / 2 / s, hh = CH / 2 / s;
+  return { s, cx: C(lerp(a[0], b[0], f), hw, FW - hw), cy: C(lerp(a[1], b[1], f), hh, FH - hh) };
+}
+const X = (cam, x) => (x - cam.cx) * cam.s + CW / 2, Y = (cam, y) => (y - cam.cy) * cam.s + CH / 2;
+
+function tag(x, y, text, bg, op = 1) {
+  const w = text.length * 7.8 + 10;
+  return `<g opacity="${op.toFixed(3)}"><rect x="${f1(x - w / 2)}" y="${f1(y - 17)}" width="${f1(w)}" height="17" rx="4" fill="${bg}"/><text x="${f1(x)}" y="${f1(y - 4.5)}" text-anchor="middle" class="tg">${text}</text></g>`;
+}
+function box(cam, p, color, { q = 1, op = 1, label = '', sw = 2.2 } = {}) {
+  if (q <= 0) return '';
+  const x1 = X(cam, p[1]), y1 = Y(cam, p[2]), x2 = X(cam, p[3]), y2 = Y(cam, p[4]);
+  const k = 1 + (1 - E.out(C(q))) * .9, cx = (x1 + x2) / 2, cy = (y1 + y2) / 2, w = (x2 - x1) * k, h = (y2 - y1) * k;
+  let s = `<rect x="${f1(cx - w / 2)}" y="${f1(cy - h / 2)}" width="${f1(w)}" height="${f1(h)}" rx="3" fill="none" stroke="${color}" stroke-width="${sw}" opacity="${(C(q) * op).toFixed(3)}"/>`;
+  if (label) s += tag(cx, cy - h / 2 - 4, label, color, C(q) * op);
+  return s;
+}
+
+const OVERLAY = {
+  track(n, lt, cam) {
+    const F = DATA.frames[n]; if (!F) return '';
+    $('#trackCount').textContent = F.p.length;
+    const scan = lerp(-80, CW + 80, K(lt, .25, 1.2, E.io)), reveal = cx => C((scan - cx) / 90);
+    let s = '';
+    for (const p of F.p) {
+      const q = reveal(X(cam, (p[1] + p[3]) / 2)); if (q <= 0) continue;
+      let prev = null;
+      for (let j = 20; j >= 0; j--) {
+        const r = IDX[n - j] && IDX[n - j].get(p[0]);
+        if (!r) { prev = null; continue; }
+        const pt = [X(cam, (r[1] + r[3]) / 2), Y(cam, r[4])];
+        if (prev) s += `<line x1="${f1(prev[0])}" y1="${f1(prev[1])}" x2="${f1(pt[0])}" y2="${f1(pt[1])}" stroke="${LIME}" stroke-opacity="${(.75 * (1 - j / 20) * q).toFixed(3)}" stroke-width="3" stroke-linecap="round"/>`;
+        prev = pt;
+      }
+    }
+    for (const p of F.p) s += box(cam, p, LIME, { q: reveal(X(cam, (p[1] + p[3]) / 2)), label: '#' + p[0] });
+    if (scan > -80 && scan < CW + 80) s += `<rect x="${f1(scan - 40)}" y="0" width="80" height="${CH}" fill="url(#scanG)"/>`;
+    return s;
+  },
+  teams(n, lt, cam) {
+    const F = DATA.frames[n]; if (!F) return '';
+    const sweep = lerp(-100, CW + 100, K(lt, .7, 1.3, E.io));
+    let s = '';
+    for (const p of F.p) {
+      const cx = X(cam, (p[1] + p[3]) / 2), done = sweep > cx, col = done ? (TEAM[p[5]] || GREY) : LIME;
+      const flash = done ? C(1 - (sweep - cx) / 180) : 0;
+      if (flash > 0) s += box(cam, p, col, { op: .7 * flash, sw: 7 }).replace('<rect', '<rect filter="url(#glow)"');
+      s += box(cam, p, col);
+      if (done) s += `<circle cx="${f1(cx)}" cy="${f1(Y(cam, p[2]) - 8)}" r="4" fill="${col}"/>`;
+    }
+    if (sweep > -100 && sweep < CW + 100) s += `<rect x="${f1(sweep - 40)}" y="0" width="80" height="${CH}" fill="url(#scanG)"/>`;
+    return s;
+  },
+  ball(n, lt, cam) {
+    const F = DATA.frames[n]; if (!F) return '';
+    let s = '';
+    for (const p of F.p) s += box(cam, p, TEAM[p[5]] || GREY, { op: .55, sw: 1.6 });
+    const pts = [];
+    for (let j = 18; j >= 0; j--) { const f = DATA.frames[n - j]; if (f && f.b) pts.push([X(cam, f.b[0]), Y(cam, f.b[1]), j]); }
+    for (let i = 1; i < pts.length; i++) {
+      const [x1, y1] = pts[i - 1], [x2, y2, j] = pts[i], w = 1 - j / 18;
+      s += `<line x1="${f1(x1)}" y1="${f1(y1)}" x2="${f1(x2)}" y2="${f1(y2)}" stroke="${LIME}" stroke-opacity="${(.85 * w).toFixed(3)}" stroke-width="${(1.5 + 6 * w).toFixed(2)}" stroke-linecap="round"/>`;
+    }
+    if (!F.b) return s;
+    const bx = X(cam, F.b[0]), by = Y(cam, F.b[1]);
+    s += `<circle cx="${f1(bx)}" cy="${f1(by)}" r="24" fill="url(#ballG)" opacity=".8"/><circle cx="${f1(bx)}" cy="${f1(by)}" r="12" fill="none" stroke="${LIME}" stroke-width="2.5"/><circle cx="${f1(bx)}" cy="${f1(by)}" r="4" fill="#fff"/>`;
+    s += tag(bx, by - 18, 'BÓNG', LIME);
+    for (const e of PASSES) {
+      const q = (n - e[0]) / 22;
+      if (q < 0 || q > 1) continue;
+      const burst = C(q * 2.2), col = TEAM[e[2]] || GREY, op = C(q * 6) * C((1 - q) * 6);
+      s += `<circle cx="${f1(bx)}" cy="${f1(by)}" r="${f1(12 + 70 * E.out(burst))}" fill="none" stroke="${col}" stroke-width="3" opacity="${(1 - burst).toFixed(3)}"/>`;
+      const text = `CHUYỀN BÓNG · ĐỘI ${e[2]}`, w = text.length * 13.2 + 36, px = bx + 30, py = by < 220 ? by + 34 : by - 72;
+      s += `<g opacity="${op.toFixed(3)}"><rect x="${f1(px)}" y="${f1(py)}" width="${f1(w)}" height="40" rx="10" fill="rgba(5,8,13,.88)" stroke="${col}" stroke-width="2"/><text x="${f1(px + 18)}" y="${f1(py + 27)}" class="pill">${text}</text></g>`;
+    }
+    return s;
+  },
+};
+
+let lastSrc = '';
+function footage(t) {
+  const sh = FOOT.find(s => t >= s.t0 && t < s.t1);
+  $('#footage').style.display = sh ? 'block' : 'none';
+  if (!sh) return null;
+  const lt = t - sh.t0, qin = K(t - FOOT[0].t0, 0, .7), qout = 1 - K(t, FOOT[2].t1 - .35, .35, E.lin);
+  const card = $('#card');
+  card.style.opacity = Math.min(qin, qout);
+  card.style.transform = `translateY(${f1((1 - qin) * 50)}px) scale(${(.97 + .03 * qin).toFixed(4)})`;
+  const pos = sh.start + lt * VFPS * sh.speed, n = Math.floor(pos);
+  const cam = camera(pos, sh, lt / (sh.t1 - sh.t0)), img = $('#frame');
+  img.style.transform = `translate(${f1(CW / 2 - cam.cx * cam.s)}px, ${f1(CH / 2 - cam.cy * cam.s)}px) scale(${cam.s.toFixed(4)})`;
+  $('#ovg').innerHTML = OVERLAY[sh.mode](n, lt, cam);
+  $('#tc').textContent = `${tc(n / VFPS)} · frame ${String(n).padStart(4, '0')}`;
+  $('#mode').textContent = sh.chip;
+  $('#livedot').style.opacity = Math.sin(t * 7) > 0 ? 1 : .35;
+  $('#flash').style.opacity = sh === FOOT[0] ? 0 : (.3 * (1 - K(lt, 0, .4, E.lin))).toFixed(3);
+  const src = `build/frames/${String(n).padStart(4, '0')}.jpg`;
+  if (src === lastSrc) return null;
+  lastSrc = src;
+  img.src = src;
+  return img.decode().catch(() => {});
+}
+
+function intro(lt, d) {
+  $('#introbg').style.transform = `scale(${(1.04 + lt * .02).toFixed(4)})`;
+  $$('#mark .corner').forEach((c, i) => {
+    const q = K(lt, .2 + i * .06, .55, E.back), [dx, dy] = [[-1, -1], [1, -1], [1, 1], [-1, 1]][i];
+    c.setAttribute('transform', `translate(${f1(dx * 26 * (1 - q))} ${f1(dy * 26 * (1 - q))})`);
+    c.style.opacity = C(q * 1.5);
+  });
+  $('#mark .ring').style.strokeDashoffset = f1(132 * (1 - K(lt, .5, .7, E.io)));
+  $('#mark .dot').style.opacity = K(lt, 1.0, .3);
+  $$('#wordmark span').forEach((s, i) => rise(s, K(lt, .9 + i * .035, .5), 40));
+  rise($('#tagline'), K(lt, 1.7, .6));
+  $$('#introchips .chip').forEach((c, i) => rise(c, K(lt, 2.2 + i * .1, .5), 16));
+  $('#introwrap').style.transform = `scale(${(1 + K(lt, d - .6, .6, E.lin) * .04).toFixed(4)})`;
+}
+
+function flow(lt) {
+  const px = lerp(nodeCx(0), nodeCx(6), K(lt, 1.1, 3.4, E.io));
+  $$('.node').forEach((el, i) => {
+    rise(el, K(lt, .35 + i * .1, .55, E.back), 40);
+    const on = lt > 1.1 && px >= nodeCx(i) - 2, g = on ? C(1 - (px - nodeCx(i)) / 500) : 0;
+    el.classList.toggle('on', on);
+    el.style.boxShadow = `0 0 ${f1(70 * g)}px rgba(184,245,59,${(.4 * g).toFixed(3)})`;
+  });
+  $('#flowbase').setAttribute('opacity', K(lt, .5, .5));
+  $('#flowlit').setAttribute('x2', f1(px));
+  $('#flowlit').setAttribute('opacity', K(lt, 1.1, .2));
+  $('#pulse').setAttribute('cx', f1(px));
+  $('#pulse').setAttribute('opacity', K(lt, 1.1, .2) * (1 - K(lt, 4.5, .3)));
+}
+
+const SP = { P0: [62, 44], P1: [72, 42], P2: [80, 34], t0: 3.0, dur: 3.4 };
+const spAt = lt => { const u = C((lt - SP.t0) / SP.dur); return [0, 1].map(i => (1 - u) ** 2 * SP.P0[i] + 2 * (1 - u) * u * SP.P1[i] + u * u * SP.P2[i]); };
+const centre = el => { const r = el.getBoundingClientRect(); return [(r.left + r.width / 2) / SCALE, (r.top + r.height / 2) / SCALE]; };
+const OFF = [[-24, -24], [24, -24], [24, 24], [-24, 24]];
+function speed(lt) {
+  const L = [0, 1, 2, 3].map(i => centre($('#aL' + i))), R = [0, 1, 2, 3].map(i => centre($('#aR' + i)));
+  const clicks = [.9, 1.35, 1.8, 2.25];
+  let cur = [860, 1010], s = '';
+  clicks.forEach((c, i) => {
+    if (lt >= c - .4) { const a = i ? L[i - 1] : [860, 1010], q = K(lt, c - .4, .36, E.io); cur = [lerp(a[0], L[i][0], q), lerp(a[1], L[i][1], q)]; }
+    $('#vL' + i).setAttribute('r', (1.8 * K(lt, c, .4, E.back)).toFixed(3));
+    $('#vR' + i).setAttribute('r', (1.8 * K(lt, 2.95 + i * .08, .35, E.back)).toFixed(3));
+    const rp = K(lt, c, .55);
+    if (rp > 0 && rp < 1) s += `<circle cx="${f1(L[i][0])}" cy="${f1(L[i][1])}" r="${f1(10 + 34 * rp)}" fill="none" stroke="${LIME}" stroke-width="2.5" opacity="${(1 - rp).toFixed(3)}"/>`;
+    const nq = K(lt, c, .3), nx = L[i][0] + OFF[i][0], ny = L[i][1] + OFF[i][1];
+    if (nq > 0) s += `<g opacity="${nq.toFixed(3)}"><circle cx="${f1(nx)}" cy="${f1(ny)}" r="15" fill="${LIME}"/><text x="${f1(nx)}" y="${f1(ny + 6)}" class="num">${i + 1}</text></g>`;
+    const lq = K(lt, 2.6 + i * .08, .55, E.io);
+    if (lq > 0) s += `<line x1="${f1(L[i][0])}" y1="${f1(L[i][1])}" x2="${f1(lerp(L[i][0], R[i][0], lq))}" y2="${f1(lerp(L[i][1], R[i][1], lq))}" stroke="${LIME}" stroke-width="2" stroke-dasharray="7 7" opacity=".8"/>`;
+  });
+  const cq = K(lt, .45, .3) * (1 - K(lt, 2.55, .3));
+  s += `<path d="M0 0 L0 26 L7 19 L12 30 L17 28 L12 17 L21 17 Z" transform="translate(${f1(cur[0])} ${f1(cur[1])})" fill="#fff" stroke="#05080d" stroke-width="1.5" opacity="${cq.toFixed(3)}"/>`;
+  $('#links').innerHTML = s;
+  const g = (.6 * K(lt, 3.0, .6)).toFixed(3);
+  $('#gridL').setAttribute('opacity', g); $('#gridR').setAttribute('opacity', g);
+  const p = spAt(lt), q0 = spAt(lt - .25), on = K(lt, SP.t0 - .3, .3);
+  const dir = Math.atan2(p[1] - q0[1], p[0] - q0[0]) * 180 / Math.PI;
+  for (const side of ['L', 'R']) {
+    const dot = $('#pd' + side);
+    dot.setAttribute('cx', f1(p[0] * 10) / 10); dot.setAttribute('cy', f1(p[1] * 10) / 10); dot.setAttribute('opacity', on);
+    const tr = [];
+    for (let k = 0; k <= 14; k++) tr.push(spAt(lt - k * .08).map(v => v.toFixed(2)).join(','));
+    $('#tr' + side).setAttribute('points', tr.join(' ')); $('#tr' + side).setAttribute('opacity', on);
+  }
+  $('#arrR').setAttribute('transform', `translate(${p[0].toFixed(2)} ${p[1].toFixed(2)}) rotate(${dir.toFixed(1)})`);
+  $('#arrR').setAttribute('opacity', K(lt, SP.t0 + .2, .3));
+  const kmh = Math.hypot(p[0] - q0[0], p[1] - q0[1]) / .25 * 3.6;
+  $('#kmh').textContent = kmh.toFixed(1);
+  $('#dirArrow').setAttribute('transform', `rotate(${dir.toFixed(1)})`);
+  $('#dirdeg').textContent = `${Math.round(dir)}°`;
+}
+
+const TL = { x0: 250, x1: 1800, lane: { A: 380, B: 470 }, axis: 540 };
+const tlx = f => TL.x0 + f / DATA.total * (TL.x1 - TL.x0);
+function star(x, y, k) {
+  let d = '';
+  for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = (i % 2 ? 7 : 17) * k; d += `${i ? 'L' : 'M'}${f1(x + r * Math.cos(a))} ${f1(y + r * Math.sin(a))}`; }
+  return d + 'Z';
+}
+function marker(type, x, y, k, col) {
+  if (type === 'pass') return `<circle cx="${f1(x)}" cy="${y}" r="${f1(8 * k)}" fill="${col}"/>`;
+  if (type === 'turnover') { const r = 10 * k; return `<path d="M${f1(x)} ${f1(y - r)} L${f1(x + r)} ${y} L${f1(x)} ${f1(y + r)} L${f1(x - r)} ${y} Z" fill="none" stroke="${col}" stroke-width="3"/>`; }
+  return `<path d="${star(x, y, k)}" fill="${LIME}" filter="url(#tlglow)"/>`;
+}
+function timeline(lt) {
+  const q = K(lt, .8, 3.2, E.io), ph = lerp(TL.x0, TL.x1, q), mid = (TL.lane.A + TL.lane.B) / 2;
+  let s = `<g opacity="${K(lt, .3, .5).toFixed(3)}">`;
+  for (const [t, y] of Object.entries(TL.lane)) s += `<line x1="${TL.x0}" y1="${y}" x2="${TL.x1}" y2="${y}" stroke="rgba(255,255,255,.08)" stroke-width="2" stroke-dasharray="4 8"/><text x="120" y="${y + 8}" class="lane" fill="${TEAM[t]}">ĐỘI ${t}</text>`;
+  s += `<line x1="${TL.x0}" y1="${TL.axis}" x2="${TL.x1}" y2="${TL.axis}" stroke="rgba(255,255,255,.25)" stroke-width="2"/>`;
+  for (let sec = 0; sec * VFPS <= DATA.total; sec += 10) { const x = f1(tlx(sec * VFPS)); s += `<line x1="${x}" y1="${TL.axis}" x2="${x}" y2="${TL.axis + 10}" stroke="rgba(255,255,255,.35)" stroke-width="2"/><text x="${x}" y="${TL.axis + 34}" class="tick">${tc(sec).slice(0, 5)}</text>`; }
+  s += '</g>';
+  const counts = { pass: 0, turnover: 0, shot: 0 };
+  for (const e of DATA.timeline) {
+    const x = tlx(e[0]);
+    if (q <= 0 || x > ph) continue;
+    counts[e[1]]++;
+    s += marker(e[1], x, TL.lane[e[2]] || mid, E.back(C((ph - x) / 50)), TEAM[e[2]] || GREY);
+  }
+  if (q > 0) s += `<line x1="${f1(ph)}" y1="335" x2="${f1(ph)}" y2="${TL.axis}" stroke="${LIME}" stroke-width="3"/><text x="${f1(ph)}" y="322" class="ph">${tc(q * DATA.total / VFPS).slice(0, 5)}</text>`;
+  const hq = K(lt, 4.3, .5);
+  if (hq > 0) {
+    const x = tlx(DATA.pass[0]), y = TL.lane[DATA.pass[1]] || mid, r = 18 + 3 * Math.sin(lt * 6);
+    s += `<circle cx="${f1(x)}" cy="${y}" r="${f1(r)}" fill="none" stroke="${LIME}" stroke-width="3" opacity="${hq.toFixed(3)}"/><text x="${f1(x)}" y="${y - 30}" class="ph" opacity="${hq.toFixed(3)}">frame ${DATA.pass[0]}</text>`;
+  }
+  $('#tlg').innerHTML = s;
+  for (const [k, v] of Object.entries(counts)) $('#c-' + k).textContent = v;
+}
+
+function perf(lt) {
+  let cur = STEPS[0][1];
+  $$('#bars .row').forEach((row, i) => {
+    const a = .6 + i * .7, g = K(lt, a + .05, .7);
+    rise(row, K(lt, a, .45), 20);
+    row.querySelector('.bar').style.width = `${f1(STEPS[i][1] / STEPS[0][1] * 600 * g)}px`;
+    if (i && lt >= a) cur = lerp(STEPS[i - 1][1], STEPS[i][1], g);
+  });
+  $('#kpi').textContent = cur.toFixed(1);
+  $('#fps').textContent = `${(1000 / cur).toFixed(0)} fps`;
+}
+
+function outputs(lt) {
+  $('#term').innerHTML = TERM.map((line, i) => {
+    const shown = line.slice(0, Math.floor(line.length * K(lt, 1.6 + i * .45, .45, E.lin)));
+    return esc(shown).replace(/^(\$)/, '<span class="s">$1</span>').replace(/^(POST|GET)/, '<span class="k">$1</span>');
+  }).join('\n');
+}
+
+function outro(lt) {
+  const q = K(lt, 0, .8, E.back);
+  $('#outromark').style.opacity = C(q);
+  $('#outromark').style.transform = `scale(${lerp(.6, 1, q).toFixed(4)})`;
+}
+
+function pitch(side) {
+  let stripes = '', grid = '';
+  for (let i = 0; i < 10; i += 2) stripes += `<rect x="${i * 10.5}" y="0" width="10.5" height="68" fill="rgba(255,255,255,.03)"/>`;
+  for (let i = 1; i < 10; i++) grid += `<line x1="${i * 10.5}" y1="0" x2="${i * 10.5}" y2="68"/><line x1="0" y1="${f1(i * 6.8)}" x2="105" y2="${f1(i * 6.8)}"/>`;
+  const corners = [[0, 0], [105, 0], [105, 68], [0, 68]];
+  return `<rect x="0" y="0" width="105" height="68" fill="rgba(52,168,83,.18)"/>${stripes}
+    <g id="grid${side}" opacity="0" stroke="${LIME}" stroke-width=".22">${grid}</g>
+    <g fill="none" stroke="rgba(255,255,255,.75)" stroke-width=".45">
+      <rect x="0" y="0" width="105" height="68"/><line x1="52.5" y1="0" x2="52.5" y2="68"/><circle cx="52.5" cy="34" r="9.15"/>
+      <rect x="0" y="13.84" width="16.5" height="40.32"/><rect x="88.5" y="13.84" width="16.5" height="40.32"/>
+      <rect x="0" y="24.84" width="5.5" height="18.32"/><rect x="99.5" y="24.84" width="5.5" height="18.32"/>
+    </g>
+    ${corners.map(([x, y], i) => `<circle id="a${side}${i}" cx="${x}" cy="${y}" r=".01" fill="none"/><circle id="v${side}${i}" cx="${x}" cy="${y}" r="0" fill="${LIME}" stroke="#05080d" stroke-width=".4"/>`).join('')}
+    <polyline id="tr${side}" fill="none" stroke="#ff4d5e" stroke-width=".7" stroke-linecap="round" stroke-linejoin="round" opacity="0"/>
+    ${side === 'R' ? '<g id="arrR" opacity="0"><line x1="0" y1="0" x2="6.5" y2="0" stroke="#fff" stroke-width=".5"/><path d="M6.2 -1.7 L9.4 0 L6.2 1.7 Z" fill="#fff"/></g>' : ''}
+    <circle id="pd${side}" r="1.5" fill="#ff4d5e" stroke="#fff" stroke-width=".45" opacity="0"/>`;
+}
+
+function init() {
+  $$('.mark').forEach(m => { m.innerHTML = MARK; });
+  $('#wordmark').innerHTML = [...'FOOTBALL TRACKER'].map(c => `<span>${c}</span>`).join('');
+  $('#nodes').innerHTML = NODES.map(([k, t, sub], i) => `<div class="node" style="left:${NODE_X0 + i * (NODE_W + NODE_GAP)}px"><div class="nn">0${i + 1}</div><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg><div class="nt">${t}</div><div class="ns">${sub}</div></div>`).join('');
+  $('#flowbase').setAttribute('x1', nodeCx(0)); $('#flowbase').setAttribute('x2', nodeCx(6)); $('#flowlit').setAttribute('x1', nodeCx(0));
+  $('#peopleAvg').textContent = DATA.stats.people;
+  const [inPlay, total] = DATA.stats.ball;
+  $('#ballPct').textContent = `${Math.round(inPlay / total * 100)}%`;
+  $('#ballCount').textContent = `${inPlay}/${total}`;
+  const NAMES = { A: ['Đội A', ''], B: ['Đội B', ''], referee: ['Khác', 'trọng tài, thủ môn'] };
+  $('#teamcols').innerHTML = Object.entries(DATA.teams).map(([t, v], i) =>
+    `<div class="tcol" data-at="${(1.9 + i * .15).toFixed(2)}" style="border-top-color:${TEAM[t]}"><div class="th"><span class="sw" style="background:${TEAM[t]}"></span><span class="tn">${NAMES[t][0]}</span></div><div class="ts">${Math.round(v.share * 100)}% số box${NAMES[t][1] ? '<br>' + NAMES[t][1] : ''}</div>` +
+    v.crops.map((c, j) => `<img src="${c}" alt="" data-at="${(2.2 + i * .15 + j * .12).toFixed(2)}" style="border-color:${TEAM[t]}">`).join('') + '</div>').join('');
+  $('#pitchL').innerHTML = pitch('L'); $('#pitchR').innerHTML = pitch('R');
+  $('#starIcon').setAttribute('d', star(0, 0, .8));
+  $('#jsonTitle').textContent = `timeline.json · sự kiện frame ${DATA.pass[0]}`;
+  $('#jsonLines').innerHTML = DATA.snippets.event.split('\n').map((l, i) => `<div data-at="${(4.6 + i * .09).toFixed(2)}">${hl(l) || ' '}</div>`).join('');
+  $('#bars').innerHTML = STEPS.map(([label, ms, delta], i) => `<div class="row${i === STEPS.length - 1 ? ' win' : i ? ' step' : ''}" style="top:${300 + i * 112}px"><div class="rl">${label}</div><div class="bar"></div><div class="rv">${ms.toFixed(1)} ms</div>${delta ? `<div class="chip rd">${delta}</div>` : ''}</div>`).join('');
+  $('#snipFrame').innerHTML = DATA.snippets.frame.split('\n').map(hl).join('\n');
+  $('#snipEvents').innerHTML = DATA.snippets.events.split('\n').map(hl).join('\n');
+  const TF = DATA.frames[DATA.thumb];
+  $('#thumbov').innerHTML = TF.p.map(p => `<rect x="${p[1]}" y="${p[2]}" width="${f1(p[3] - p[1])}" height="${f1(p[4] - p[2])}" fill="none" stroke="${TEAM[p[5]] || GREY}" stroke-width="3"/>`).join('') + (TF.b ? `<circle cx="${TF.b[0]}" cy="${TF.b[1]}" r="10" fill="none" stroke="${LIME}" stroke-width="3"/>` : '');
+  $('#introbg').src = DATA.bg;
+  $('#thumb').src = `build/frames/${String(DATA.thumb).padStart(4, '0')}.jpg`;
+  return Promise.all($$('img').filter(i => i.src).map(i => i.decode().catch(() => {})));
+}
+
+window.render = function (t) {
+  $('#glowA').style.transform = `translate(${f1(-250 + 180 * Math.sin(t * .23))}px, ${f1(-380 + 120 * Math.cos(t * .19))}px)`;
+  $('#glowB').style.transform = `translate(${f1(1150 + 160 * Math.cos(t * .17))}px, ${f1(330 + 140 * Math.sin(t * .21))}px)`;
+  let label = '';
+  for (const [id, t0, t1, lab, fn] of SCENES) {
+    const el = $('#s-' + id), on = t >= t0 && t < t1;
+    el.style.display = on ? 'block' : 'none';
+    if (!on) continue;
+    const lt = t - t0, d = t1 - t0;
+    el.style.opacity = Math.min(K(lt, 0, .35), 1 - K(lt, d - .3, .3, E.lin));
+    for (const a of $$('[data-at]', el)) rise(a, K(lt, +a.dataset.at, .6));
+    fn(lt, d);
+    label = lab;
+  }
+  const pending = footage(t);
+  $('#footer').style.opacity = Math.min(K(t, 4.5, .6), 1 - K(t, 61.2, .5, E.lin));
+  $('#chapter').textContent = label;
+  $('#progress').style.width = `${(t / DURATION * 100).toFixed(2)}%`;
+  $('#black').style.opacity = K(t, DURATION - .8, .8, E.lin);
+  return pending;
+};
+
+init().then(() => {
+  window.ready = true;
+  if (location.search.includes('capture')) return;
+  const fit = () => { SCALE = Math.min(innerWidth / W, innerHeight / H); $('#stage').style.transform = `scale(${SCALE})`; };
+  fit(); addEventListener('resize', fit);
+  const start = performance.now();
+  const loop = now => { render((now - start) / 1000 % DURATION); requestAnimationFrame(loop); };
+  requestAnimationFrame(loop);
+});
+</script>
+</body>
+</html>

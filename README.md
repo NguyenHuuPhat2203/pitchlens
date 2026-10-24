@@ -233,6 +233,10 @@ ruff check src/ tests/ main.py
 
 # Pre-commit
 pre-commit install
+
+# Promo video (real pipeline output + motion graphics, rendered in Edge)
+.venv/Scripts/python.exe -m pip install playwright imageio-ffmpeg
+.venv/Scripts/python.exe promo/make.py   # -> promo/football-tracker-demo.mp4
 ```
 
 ## Docs
