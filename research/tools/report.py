@@ -12,19 +12,21 @@ out = ROOT / "to_human" / f"progress-{sys.argv[1]}.html"
 
 # Shipped product states on the proxy metric (ms/frame, JSON-only, sample.mp4).
 steps = [
-    ("Baseline (CUDA EP FP16)", 52.31, "run_003 B"),
-    ("+ TensorRT EP", 39.85, "run_003 T"),
-    ("+ ball detection in parallel", 36.93, "run_004 P"),
+    ("Baseline", 52.31, "run_003 B"),
+    ("+ TensorRT", 39.85, "run_003 T"),
+    ("+ bóng song song", 36.93, "run_004 P"),
+    ("+ letterbox GPU", 32.45, "run_008 G"),
+    ("+ OC-SORT batch", 27.55, "run_012 V"),
 ]
 
 
 def chart() -> str:
     w, h, pad = 760, 300, 60
-    lo, hi = 30.0, 55.0
+    lo, hi = 25.0, 55.0
     y = lambda v: pad + (hi - v) / (hi - lo) * (h - 2 * pad)  # noqa: E731
     x = lambda i: pad + i * (w - 2 * pad) / (len(steps) - 1)  # noqa: E731
     parts = [f'<svg viewBox="0 0 {w} {h}" width="100%" role="img" aria-label="ms per frame by shipped change">']
-    for v in (30, 35, 40, 45, 50, 55):
+    for v in (25, 30, 35, 40, 45, 50, 55):
         parts.append(f'<line x1="{pad}" x2="{w - pad}" y1="{y(v)}" y2="{y(v)}" class="grid"/>'
                      f'<text x="{pad - 8}" y="{y(v) + 4}" class="axis" text-anchor="end">{v}</text>')
     parts.append(f'<line x1="{pad}" x2="{w - pad}" y1="{y(steps[0][1])}" y2="{y(steps[0][1])}" class="base"/>')
@@ -67,33 +69,36 @@ td.n{{text-align:right;font-variant-numeric:tabular-nums}}
 <h1>Tối ưu thông lượng pipeline phân tích bóng đá</h1>
 <div class="sub">RTX 3050 Ti Laptop · data/sample.mp4 (1505 frame, 1280×720) · cấu hình mặc định, JSON-only · đo xen kẽ để loại nhiễu nhiệt</div>
 
-<div class="kpi"><div><b>52.3 → 36.9 ms</b>ms/frame đã ship</div><div><b>19.1 → 27.1 fps</b>−29.4% thời gian</div>
-<div><b>Output giữ nguyên</b>recall cầu thủ 0.997; bóng &amp; cú sút trùng khớp</div></div>
+<div class="kpi"><div><b>52.3 → 27.6 ms</b>ms/frame đã ship</div><div><b>19.1 → 36.3 fps</b>−47% thời gian</div>
+<div><b>Output an toàn</b>TensorRT/letterbox: lệch ở mức nhiễu FP16 · song song bóng &amp; OC-SORT: trùng từng byte</div></div>
 
 <h2>Quỹ đạo tối ưu</h2>
 {chart()}
+<p class="sub">Mỗi điểm là trung bình của biến thể trong lần đo xen kẽ riêng của nó; baseline giữa các phiên lệch ≤ 0.9 ms.</p>
+
+<h2>Vòng 2: ba ý tưởng</h2>
+<table><tr><th>Ý tưởng</th><th>Kết quả</th><th>Quyết định</th></tr>
+<tr><td>Letterbox trên GPU (H7b)</td><td>37.81 → 32.45 ms (−5.4 ms, dự đoán ≥ 2 ms). Input bóng trùng từng bit; input cầu thủ lệch ±1 mức xám; recall 0.996</td><td><span class="b ok">ship</span></td></tr>
+<tr><td>Input model cầu thủ nhỏ hơn (H9)</td><td>768×768: IDF1 −5.9 · 544×960: đủ guard nhưng chỉ −1.38 ms, và đổi 5.5% box</td><td><span class="b no">không ship</span></td></tr>
+<tr><td>OC-SORT batch (H6c → H6d)</td><td>Lần 1 thiếu bước clip box ở mép ảnh → khác 56 frame. Lần 2: 32.09 → 27.55 ms (−4.54 ms), frames.json trùng từng byte</td><td><span class="b ok">ship</span></td></tr>
+</table>
 
 <h2>Phát hiện chính</h2>
 <ol>
-<li><b>Lúc đầu GPU là nút thắt.</b> Forward thuần: cầu thủ 14.9 ms, bóng 28.6 ms. Copy dữ liệu không đáng kể (IO binding chỉ tiết kiệm ≤ 1.7 ms).</li>
-<li><b>TensorRT FP16 nhanh 1.7–1.8× mỗi model</b> với output gần như trùng CUDA FP16 (IoU ≥ 0.994). End-to-end −23.8%. Ultralytics luôn mở ONNX bằng CUDA EP, nên cần thay session sau lần gọi thật đầu tiên.</li>
-<li><b>Chạy model bóng song song với tracking cầu thủ</b> giấu được ~35% chi phí của nó (−3.1 ms), output trùng bit.</li>
-<li><b>Sau TensorRT, nút thắt chuyển sang CPU:</b> OC-SORT ~6.5–9 ms, letterbox trên CPU ~3 ms, trong khi GPU chỉ còn 8.8 ms.</li>
-<li><b>Hai kết quả âm có giá trị:</b>
-  <ul>
-  <li>ByteTrack nhanh hơn 4 ms nhưng <b>tăng 35% đổi ID</b> trên ground truth SportsMOT. Timeline gán quyền giữ bóng theo ID, nên giữ OC-SORT.</li>
-  <li>Bật lại đa luồng OpenCV gây tranh chấp CPU: chậm hơn và thất thường. CPU đã bão hoà, chỉ còn cách <i>bớt việc</i>, không thể song song hoá thêm.</li>
-  </ul></li>
+<li><b>Bớt việc CPU có lợi hơn chính thời gian của nó.</b> Letterbox ~3 ms nhưng tiết kiệm 5.4 ms; tracker ~3 ms nhưng tiết kiệm 4.5 ms, vì luồng chính và luồng bóng tranh nhau CPU. Ngược lại, thêm luồng OpenCV (H8) làm chậm hơn.</li>
+<li><b>Cùng tỉ lệ vẫn không cùng kết quả.</b> Bỏ padding (544×960) giữ nguyên tỉ lệ 0.75, nhưng detector bớt bắt khán giả phía trên ảnh và sót thêm một ít cầu thủ giữa sân: hình học input cũng là thay đổi độ chính xác.</li>
+<li><b>MOTA đánh lừa ở đây, IDF1 mới quyết định.</b> Detector COCO bắt cả người ngoài sân không có nhãn; giảm input làm MOTA tăng nhưng IDF1 giảm 3–10 điểm vì mất cầu thủ ở xa.</li>
+<li><b>"Trùng output" phải kiểm ở ranh giới sản phẩm.</b> Port OC-SORT khớp chính xác ở mức tracker ngay từ đầu, nhưng sản phẩm còn một bước clip của Ultralytics phía sau; chỉ so sánh frames.json mới phát hiện ra.</li>
 </ol>
 
 <h2>Bản đồ giả thuyết</h2>
 <table><tr><th>ID</th><th>Trạng thái</th><th>Phát biểu (đã khoá trước khi chạy)</th></tr>{rows}</table>
 
-<h2>Bước tiếp theo</h2>
+<h2>Còn lại</h2>
 <ul>
-<li><b>H7b</b>: letterbox trên GPU (upload uint8, resize+pad bằng torch). Kỳ vọng −3 ms CPU mỗi lần gọi model cầu thủ, có guard parity.</li>
-<li><b>H9</b>: model cầu thủ ở imgsz 768 thay vì 960. Đánh đổi độ chính xác, đo IDF1 trên ground truth SportsMOT; ngưỡng ≤ 1 điểm.</li>
-<li>OC-SORT vectorised với output giống hệt: lợi lớn nhất còn lại (~5 ms) nhưng là một dự án code riêng.</li>
+<li><b>Padding của model bóng</b>: input 1280×1280 cho frame 1280×720, 44% là padding, trên forward 13 ms. Cần checkpoint huấn luyện để export lại, và phải kiểm lại recall bóng (bài học H9b).</li>
+<li><b>Hai detector trên một GPU 4 GB</b>: <code>player_track</code> chạy riêng 15 ms nhưng ~22 ms khi chạy cạnh model bóng; cần thử cách sắp lịch hai model.</li>
+<li><b>Xuất video (H5)</b>: bật output video thêm ~20 ms/frame (render 2.7 + encode 7.2 ms đo được, phần còn lại là vẽ và tranh chấp); nên đưa encode ra khỏi luồng chính nếu cần xuất video.</li>
 </ul>
 <p class="sub">Chi tiết từng thí nghiệm: <code>research/experiments/*/protocol.md</code> (khoá trong git trước khi chạy) và <code>analysis.md</code>.</p>
 </html>"""

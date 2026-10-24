@@ -52,6 +52,13 @@ them in `.cache/trt/`; later runs start in seconds. Without the package, or
 with `model.tensorrt: false`, the CUDA EP is used. Measurements:
 `research/experiments/h3b-trt-end-to-end/analysis.md`.
 
+On CUDA, frames are also letterboxed on the GPU. Player tracking uses
+`src/serve/pipeline/ocsort.py`, an exact batched port of Ultralytics' OC-SORT:
+same tracks and IDs, about 2.5x cheaper on the CPU. `tests/test_ocsort.py`
+checks it against Ultralytics, so re-run it before upgrading the pinned
+`ultralytics`. Throughput history and the experiments behind it:
+`research/findings.md`.
+
 Model downloads, Ultralytics settings, and torch / Hugging Face caches stay
 inside the project: `.cache/`, `weights/`, `runs/`, and `data/datasets/`.
 `import src` sets this up; the local notebooks do the same in their first cell.
@@ -88,7 +95,7 @@ src/
 ├── features/       Team classifier, timeline builder
 ├── model/          Data classes (Detection, Track, Frame, Event)
 ├── serve/
-│   ├── pipeline/   Inference engine (tracker, ball_tracker,
+│   ├── pipeline/   Inference engine (tracker, ocsort, ball_tracker,
 │   │               calibrator, speed, shot, renderer, video_reader)
 │   ├── artifacts/  Serializer (item schema), OutputWriter
 │   └── adapt/      FastAPI + MJPEG stream (app, schemas)

@@ -25,3 +25,22 @@
 - H6b (cheaper tracker) refuted on SportsMOT football GT: ByteTrack −4 ms but +35% ID switches.
 - H8 (re-enable OpenCV threads) refuted: contention, unstable (+2.5 ms mean).
 - Direction: deepen on removing CPU work (H7b GPU letterbox, H9 smaller player input with GT guard, vectorised OC-SORT).
+
+## 2026-10-24 — Environment
+- Project moved to `D:/Side_Projects/football-tracker`; `.venv` was gone. Recreated with the measured versions (torch 2.11.0+cu128, onnxruntime-gpu 1.26.0, tensorrt-cu12-libs 10.16.1.11) and pinned `ultralytics==8.4.182`, because our code patches its internals.
+- The move left `.cache/Ultralytics/settings.json` pointing at the old folders (seeded once). Fixed `src/__init__.py` to re-point them on every import, with a regression test.
+- Harness scripts written before H6d use the old `Tracker(model, tracker_config, ...)` API. Re-run them at their own commit.
+
+## 2026-10-24 — H7b GPU letterbox (run_008)
+- Input parity: player ±1 grey level on 5.2% of values; ball bit-identical. End to end 37.81 → 32.45 (−5.4 ms, predicted ≥ 2). Guards hold. Shipped.
+
+## 2026-10-24 — H9 input shape (run_009, run_010)
+- Provenance confirmed (re-export max Δ 6e-5). 768×768: IDF1 −5.9 → refuted. 544×960: eligible, but its predictions failed (accuracy changed, forward −26% < 30%). End to end −1.38 ms < 1.5 ms → not shipped. Exports deleted (regenerate with `code/export.py`).
+
+## 2026-10-24 — H6c / H6d batched OC-SORT (run_011, run_012)
+- H6c: replay exact, but frames.json differed at the image border (missing `Results.update` clip), and the gain was 2.65 ms < 3 → refuted as locked.
+- Exploratory: batched the direction cost, velocities and Kalman update after checking bit-exactness (port 2.29 → 1.78 ms on the synthetic scene).
+- H6d: replay exact, frames.json byte-identical, −4.54 ms → supported and shipped.
+
+## 2026-10-24 — Outer loop 2→3
+- 52.3 → 27.6 ms/frame shipped (−47%). Remaining levers: the ball model's padding (needs training weights), contention between the two detectors on one GPU, and main-thread CPU outside the tracker. Direction: broaden (profile what's left), conclude this round.

@@ -1,0 +1,12 @@
+{
+  "pt": {
+    "date": "2026-01-05T19:02:41.086829",
+    "version": "8.3.222",
+    "license": "AGPL-3.0 (https://ultralytics.com/license)"
+  },
+  "provenance": {
+    "frames": 20,
+    "same_count_frames": 20,
+    "max_abs_diff_box_conf": 6.103515625e-05
+  }
+}

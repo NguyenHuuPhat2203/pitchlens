@@ -13,9 +13,19 @@ from src.config import load_config
 from src.serve.pipeline.pipeline import Pipeline
 
 
-def run_pipeline(out_dir: Path, tag: str, setup: Callable[[Pipeline], None] | None = None) -> dict:
-    """One JSON-only run of the default config; ``setup`` mutates the built pipeline (the variant)."""
+def run_pipeline(
+    out_dir: Path,
+    tag: str,
+    setup: Callable[[Pipeline], None] | None = None,
+    configure: Callable | None = None,
+) -> dict:
+    """One JSON-only run of the default config.
+
+    ``configure(cfg)`` edits the config before the pipeline is built; ``setup(pipeline)`` edits it after.
+    """
     cfg = load_config("config/default.yaml")
+    if configure is not None:
+        configure(cfg)
     cfg.pipeline.display = False
     base = out_dir / tag
     cfg.pipeline.output_json = str(base / "frames.json")
@@ -36,11 +46,17 @@ def run_pipeline(out_dir: Path, tag: str, setup: Callable[[Pipeline], None] | No
     }
 
 
-def interleave(out_dir: Path, variants: dict[str, Callable | None], order: str) -> list[dict]:
+def interleave(
+    out_dir: Path,
+    variants: dict[str, Callable | None],
+    order: str,
+    configure: dict[str, Callable] | None = None,
+) -> list[dict]:
     """Run variants in ``order`` (e.g. "SGSG"), print and save each result."""
     results = []
     for i, key in enumerate(order):
-        r = {"variant": key, **run_pipeline(out_dir, f"run{i + 1}_{key}", variants[key])}
+        tag = f"run{i + 1}_{key}"
+        r = {"variant": key, **run_pipeline(out_dir, tag, variants[key], (configure or {}).get(key))}
         results.append(r)
         print(json.dumps(r), flush=True)
     (out_dir / "runs.json").write_text(json.dumps(results, indent=2))

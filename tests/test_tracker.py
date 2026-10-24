@@ -1,92 +1,55 @@
-"""Tests for Tracker — OC-SORT wrapper producing PlayerTrack objects."""
+"""Tests for Tracker: YOLO person detections in, confirmed OC-SORT tracks out."""
 
 import numpy as np
-import pytest
+import torch
 
-from src.model.track import PlayerTrack
 from src.serve.pipeline.tracker import Tracker
 
-
-def _make_synthetic_frame(width: int = 640, height: int = 480) -> np.ndarray:
-    """Return a blank BGR frame for tracker testing."""
-    return np.zeros((height, width, 3), dtype=np.uint8)
+FRAME = np.zeros((360, 640, 3), dtype=np.uint8)
 
 
-class TestTracker:
-    """Unit tests for the OC-SORT tracker wrapper."""
+class _FakeYOLO:
+    """Stands in for ultralytics.YOLO: predict() returns canned (N, 6) boxes, one list per frame."""
 
-    @pytest.fixture
-    def tracker(self) -> Tracker:
-        """Create a tracker with CPU YOLO26s."""
-        return Tracker(
-            model_name="yolo26s.pt",
-            tracker_config="ocsort.yaml",
-            device="cpu",
-        )
+    def __init__(self, frames: list[list[list[float]]]) -> None:
+        self._frames = iter(frames)
 
-    def test_track_returns_list(self, tracker: Tracker) -> None:
-        """track() returns a list of PlayerTrack objects."""
-        frame = _make_synthetic_frame()
-        tracks = tracker.track(frame)
-        assert isinstance(tracks, list)
-        for p in tracks:
-            assert isinstance(p, PlayerTrack)
-
-    def test_track_has_valid_ids(self, tracker: Tracker) -> None:
-        """Every PlayerTrack has a non-negative integer track_id."""
-        frame = _make_synthetic_frame()
-        tracks = tracker.track(frame)
-        for p in tracks:
-            assert isinstance(p.track_id, int)
-            assert p.track_id >= 0
+    def predict(self, frame, **kwargs):
+        data = torch.tensor(next(self._frames), dtype=torch.float32).reshape(-1, 6)
+        return [type("R", (), {"boxes": type("B", (), {"data": data})()})()]
 
 
-class _FakeBoxes:
-    def __init__(self, ids):
-        import torch
-
-        n = 2
-        self.xyxy = torch.tensor([[0.0, 0.0, 10.0, 20.0]] * n)
-        self.conf = torch.tensor([0.9] * n)
-        self.cls = torch.tensor([0.0] * n)
-        self.id = None if ids is None else torch.tensor(ids, dtype=torch.float32)
+def _tracker(frames) -> Tracker:
+    tracker = Tracker("yolo26s.pt", device="cpu")
+    tracker._model = _FakeYOLO(frames)
+    return tracker
 
 
-class _FakeModel:
-    """Stands in for YOLO: returns canned results and exposes a predictor."""
-
-    def __init__(self, ids, trackers=()):
-        self._ids = ids
-        self.predictor = type("P", (), {"trackers": list(trackers)})()
-
-    def track(self, frame, **kwargs):
-        return [type("R", (), {"boxes": _FakeBoxes(self._ids)})()]
+def _player(x: float, conf: float = 0.9) -> list[float]:
+    return [x, 100.0, x + 30.0, 170.0, conf, 0.0]
 
 
-def _tracker_with(model) -> Tracker:
-    t = object.__new__(Tracker)
-    t._model, t._tracker_config, t._device = model, "ocsort.yaml", "cpu"
-    t._half, t._conf = False, 0.3
-    return t
+def test_player_keeps_its_id_and_newcomers_show_from_their_second_frame() -> None:
+    tracker = _tracker([[_player(100)], [_player(104), _player(400)], [_player(108), _player(404)]])
+
+    first = tracker.track(FRAME)
+    second = tracker.track(FRAME)
+    third = tracker.track(FRAME)
+
+    assert [t.track_id for t in first] == [1]  # the first frame confirms immediately
+    assert [t.track_id for t in second] == [1]  # the newcomer is not confirmed yet
+    assert sorted(t.track_id for t in third) == [1, 2]
+    assert abs(third[0].bbox[0] - 108) < 3  # Kalman-filtered box follows the player
 
 
-def test_track_drops_detections_without_track_id() -> None:
-    """Untracked detections (no ID yet) never reach the pipeline."""
-    tracker = _tracker_with(_FakeModel(ids=None))
-    assert tracker.track(_make_synthetic_frame()) == []
-    tracks = _tracker_with(_FakeModel(ids=[4, 5])).track(_make_synthetic_frame())
-    assert [t.track_id for t in tracks] == [4, 5]
+def test_boxes_stay_inside_the_frame() -> None:
+    tracker = _tracker([[[620.0, 100.0, 660.0, 170.0, 0.9, 0.0]]])
+    (track,) = tracker.track(FRAME)
+    assert track.bbox[2] == 640.0
 
 
-def test_reset_clears_underlying_trackers() -> None:
-    """reset() resets every Ultralytics tracker (ids restart between videos)."""
-    class Fake:
-        resets = 0
-
-        def reset(self):
-            self.resets += 1
-
-    fake = Fake()
-    _tracker_with(_FakeModel(ids=[1, 2], trackers=[fake])).reset()
-    assert fake.resets == 1
-    _tracker_with(_FakeModel(ids=[1, 2])).reset()  # no predictor trackers yet
+def test_reset_restarts_ids() -> None:
+    tracker = _tracker([[_player(100)], [_player(400)]])
+    tracker.track(FRAME)
+    tracker.reset()
+    assert [t.track_id for t in tracker.track(FRAME)] == [1]

@@ -60,7 +60,6 @@ class Pipeline:
 
         self._tracker = Tracker(
             model_name=model_path(model_cfg.player_detector),
-            tracker_config="ocsort.yaml",
             device=device,
             half=half,
             conf=model_cfg.detection_conf,

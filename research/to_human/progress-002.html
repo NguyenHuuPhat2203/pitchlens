@@ -1,0 +1,52 @@
+<!doctype html><html lang="vi"><meta charset="utf-8">
+<title>Pipeline throughput — progress 002</title>
+<style>
+body{font:15px/1.55 system-ui,sans-serif;max-width:980px;margin:32px auto;padding:0 20px;color:#1d1d1f;background:#fff}
+h1{font-size:24px;margin-bottom:4px} h2{font-size:18px;margin-top:32px;border-bottom:1px solid #ddd;padding-bottom:4px}
+.sub{color:#666} table{border-collapse:collapse;width:100%;font-size:14px}
+td,th{border-bottom:1px solid #eee;padding:6px 8px;text-align:left;vertical-align:top} th{background:#f6f6f6}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+.b{padding:1px 8px;border-radius:10px;font-size:12px;white-space:nowrap}
+.ok{background:#d8f3dc;color:#1b5e20} .no{background:#fde2e1;color:#8a1c1c}
+.mid{background:#fff1c2;color:#7a5b00} .todo{background:#e8eaf6;color:#283593}
+.grid{stroke:#e5e5e5} .base{stroke:#c62828;stroke-dasharray:6 4} .line{fill:none;stroke:#1565c0;stroke-width:3}
+.dot{fill:#1565c0} .axis{font-size:12px;fill:#666} .val{font-size:13px;font-weight:600;fill:#1d1d1f}
+.kpi{display:flex;gap:16px;margin:16px 0} .kpi div{flex:1;background:#f6f8fb;border-radius:10px;padding:12px 16px}
+.kpi b{display:block;font-size:24px}
+</style>
+<h1>Tối ưu thông lượng pipeline phân tích bóng đá</h1>
+<div class="sub">RTX 3050 Ti Laptop · data/sample.mp4 (1505 frame, 1280×720) · cấu hình mặc định, JSON-only · đo xen kẽ để loại nhiễu nhiệt</div>
+
+<div class="kpi"><div><b>52.3 → 27.6 ms</b>ms/frame đã ship</div><div><b>19.1 → 36.3 fps</b>−47% thời gian</div>
+<div><b>Output an toàn</b>TensorRT/letterbox: lệch ở mức nhiễu FP16 · song song bóng &amp; OC-SORT: trùng từng byte</div></div>
+
+<h2>Quỹ đạo tối ưu</h2>
+<svg viewBox="0 0 760 300" width="100%" role="img" aria-label="ms per frame by shipped change"><line x1="60" x2="700" y1="240.0" y2="240.0" class="grid"/><text x="52" y="244.0" class="axis" text-anchor="end">25</text><line x1="60" x2="700" y1="210.0" y2="210.0" class="grid"/><text x="52" y="214.0" class="axis" text-anchor="end">30</text><line x1="60" x2="700" y1="180.0" y2="180.0" class="grid"/><text x="52" y="184.0" class="axis" text-anchor="end">35</text><line x1="60" x2="700" y1="150.0" y2="150.0" class="grid"/><text x="52" y="154.0" class="axis" text-anchor="end">40</text><line x1="60" x2="700" y1="120.0" y2="120.0" class="grid"/><text x="52" y="124.0" class="axis" text-anchor="end">45</text><line x1="60" x2="700" y1="90.0" y2="90.0" class="grid"/><text x="52" y="94.0" class="axis" text-anchor="end">50</text><line x1="60" x2="700" y1="60.0" y2="60.0" class="grid"/><text x="52" y="64.0" class="axis" text-anchor="end">55</text><line x1="60" x2="700" y1="76.13999999999999" y2="76.13999999999999" class="base"/><polyline points="60.0,76.13999999999999 220.0,150.9 380.0,168.42000000000002 540.0,195.29999999999998 700.0,224.7" class="line"/><circle cx="60.0" cy="76.13999999999999" r="5" class="dot"/><text x="60.0" y="64.13999999999999" text-anchor="middle" class="val">52.3 ms</text><text x="54.0" y="262" text-anchor="start" class="axis">Baseline</text><circle cx="220.0" cy="150.9" r="5" class="dot"/><text x="220.0" y="138.9" text-anchor="middle" class="val">39.9 ms</text><text x="220.0" y="262" text-anchor="middle" class="axis">+ TensorRT</text><circle cx="380.0" cy="168.42000000000002" r="5" class="dot"/><text x="380.0" y="156.42000000000002" text-anchor="middle" class="val">36.9 ms</text><text x="380.0" y="262" text-anchor="middle" class="axis">+ bóng song song</text><circle cx="540.0" cy="195.29999999999998" r="5" class="dot"/><text x="540.0" y="183.29999999999998" text-anchor="middle" class="val">32.5 ms</text><text x="540.0" y="262" text-anchor="middle" class="axis">+ letterbox GPU</text><circle cx="700.0" cy="224.7" r="5" class="dot"/><text x="700.0" y="212.7" text-anchor="middle" class="val">27.6 ms</text><text x="706.0" y="262" text-anchor="end" class="axis">+ OC-SORT batch</text><text x="18" y="150.0" class="axis" transform="rotate(-90 18 150.0)" text-anchor="middle">ms / frame (lower is better)</text></svg>
+<p class="sub">Mỗi điểm là trung bình của biến thể trong lần đo xen kẽ riêng của nó; baseline giữa các phiên lệch ≤ 0.9 ms.</p>
+
+<h2>Vòng 2: ba ý tưởng</h2>
+<table><tr><th>Ý tưởng</th><th>Kết quả</th><th>Quyết định</th></tr>
+<tr><td>Letterbox trên GPU (H7b)</td><td>37.81 → 32.45 ms (−5.4 ms, dự đoán ≥ 2 ms). Input bóng trùng từng bit; input cầu thủ lệch ±1 mức xám; recall 0.996</td><td><span class="b ok">ship</span></td></tr>
+<tr><td>Input model cầu thủ nhỏ hơn (H9)</td><td>768×768: IDF1 −5.9 · 544×960: đủ guard nhưng chỉ −1.38 ms, và đổi 5.5% box</td><td><span class="b no">không ship</span></td></tr>
+<tr><td>OC-SORT batch (H6c → H6d)</td><td>Lần 1 thiếu bước clip box ở mép ảnh → khác 56 frame. Lần 2: 32.09 → 27.55 ms (−4.54 ms), frames.json trùng từng byte</td><td><span class="b ok">ship</span></td></tr>
+</table>
+
+<h2>Phát hiện chính</h2>
+<ol>
+<li><b>Bớt việc CPU có lợi hơn chính thời gian của nó.</b> Letterbox ~3 ms nhưng tiết kiệm 5.4 ms; tracker ~3 ms nhưng tiết kiệm 4.5 ms, vì luồng chính và luồng bóng tranh nhau CPU. Ngược lại, thêm luồng OpenCV (H8) làm chậm hơn.</li>
+<li><b>Cùng tỉ lệ vẫn không cùng kết quả.</b> Bỏ padding (544×960) giữ nguyên tỉ lệ 0.75, nhưng detector bớt bắt khán giả phía trên ảnh và sót thêm một ít cầu thủ giữa sân: hình học input cũng là thay đổi độ chính xác.</li>
+<li><b>MOTA đánh lừa ở đây, IDF1 mới quyết định.</b> Detector COCO bắt cả người ngoài sân không có nhãn; giảm input làm MOTA tăng nhưng IDF1 giảm 3–10 điểm vì mất cầu thủ ở xa.</li>
+<li><b>"Trùng output" phải kiểm ở ranh giới sản phẩm.</b> Port OC-SORT khớp chính xác ở mức tracker ngay từ đầu, nhưng sản phẩm còn một bước clip của Ultralytics phía sau; chỉ so sánh frames.json mới phát hiện ra.</li>
+</ol>
+
+<h2>Bản đồ giả thuyết</h2>
+<table><tr><th>ID</th><th>Trạng thái</th><th>Phát biểu (đã khoá trước khi chạy)</th></tr><tr><td>H1</td><td><span class="b no">refuted</span></td><td>Raw player session.run &lt;= 12 ms and &lt;= 40% of player_track.</td></tr><tr><td>H2</td><td><span class="b ok">supported</span></td><td>Raw ball session.run &gt;= 60% of ball_detect.</td></tr><tr><td>H3</td><td><span class="b mid">inconclusive</span></td><td>TensorRT FP16 cuts raw inference &gt;= 2x for both models with parity.</td></tr><tr><td>H3b</td><td><span class="b ok">supported</span></td><td>TRT EP for both detectors cuts end-to-end ms/frame &gt;= 20% with guards holding.</td></tr><tr><td>H4</td><td><span class="b ok">supported</span></td><td>Ball detection in parallel with player tracking hides &gt;= 25% of its cost.</td></tr><tr><td>H5</td><td><span class="b todo">pending</span></td><td>Moving video encode off the main loop removes it from ms/frame when output_video is set.</td></tr><tr><td>H6</td><td><span class="b ok">supported</span></td><td>OC-SORT costs &gt;= 5 ms/frame on CPU, dominated by per-track Python work.</td></tr><tr><td>H6b</td><td><span class="b no">refuted</span></td><td>ByteTrack/FastTrack cut &gt;= 2 ms with IDF1 within 2 and ID switches &lt;= 1.2x OC-SORT.</td></tr><tr><td>H6c</td><td><span class="b no">refuted</span></td><td>Batched OC-SORT port + predict: identical tracks, &gt;= 3 ms/frame faster.</td></tr><tr><td>H6d</td><td><span class="b ok">supported</span></td><td>Port v2 + clip: byte-identical frames.json, &gt;= 3 ms faster (ship at &gt;= 2 ms).</td></tr><tr><td>H7</td><td><span class="b ok">supported</span></td><td>Ultralytics pre/post adds &gt;= 4 ms around the session.</td></tr><tr><td>H7b</td><td><span class="b ok">supported</span></td><td>Letterbox on the GPU removes the CPU letterbox, &gt;= 2 ms/frame, guards holding.</td></tr><tr><td>H8</td><td><span class="b no">refuted</span></td><td>Re-enabling OpenCV threading cuts &gt;= 1.5 ms with identical outputs.</td></tr><tr><td>H9</td><td><span class="b no">refuted</span></td><td>Player detector at 768x768 cuts &gt;= 3 ms/frame with IDF1 drop &lt;= 1.</td></tr><tr><td>H9b</td><td><span class="b no">refuted</span></td><td>Player detector at 544x960 (same scale): accuracy within +-0.5, forward &gt;= 30% faster.</td></tr></table>
+
+<h2>Còn lại</h2>
+<ul>
+<li><b>Padding của model bóng</b>: input 1280×1280 cho frame 1280×720, 44% là padding, trên forward 13 ms. Cần checkpoint huấn luyện để export lại, và phải kiểm lại recall bóng (bài học H9b).</li>
+<li><b>Hai detector trên một GPU 4 GB</b>: <code>player_track</code> chạy riêng 15 ms nhưng ~22 ms khi chạy cạnh model bóng; cần thử cách sắp lịch hai model.</li>
+<li><b>Xuất video (H5)</b>: bật output video thêm ~20 ms/frame (render 2.7 + encode 7.2 ms đo được, phần còn lại là vẽ và tranh chấp); nên đưa encode ra khỏi luồng chính nếu cần xuất video.</li>
+</ul>
+<p class="sub">Chi tiết từng thí nghiệm: <code>research/experiments/*/protocol.md</code> (khoá trong git trước khi chạy) và <code>analysis.md</code>.</p>
+</html>
