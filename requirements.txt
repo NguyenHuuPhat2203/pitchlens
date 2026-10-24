@@ -1,4 +1,5 @@
-ultralytics
+ultralytics==8.4.182  # src/backbone/gpu_utils.py patches predictor internals; re-validate before upgrading
+lap>=0.5.12  # linear assignment for src/serve/pipeline/ocsort.py (Ultralytics would auto-install it at import)
 supervision
 opencv-python>=4.8.0
 numpy>=1.24.0
