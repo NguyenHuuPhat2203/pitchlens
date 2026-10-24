@@ -1,0 +1,367 @@
+{
+  "provider": "TensorrtExecutionProvider",
+  "frames": 290,
+  "tracks_per_frame": 23.2,
+  "top_cumulative": [
+    {
+      "func": "grad_mode.py:293:__exit__",
+      "ncalls": 580,
+      "cum_ms_per_frame": 50.093,
+      "self_ms_per_frame": 0.046
+    },
+    {
+      "func": "~:0:<method 'send' of 'generator' objects>",
+      "ncalls": 580,
+      "cum_ms_per_frame": 24.993,
+      "self_ms_per_frame": 0.057
+    },
+    {
+      "func": "predictor.py:321:stream_inference",
+      "ncalls": 580,
+      "cum_ms_per_frame": 24.701,
+      "self_ms_per_frame": 0.059
+    },
+    {
+      "func": "predictor.py:209:inference",
+      "ncalls": 290,
+      "cum_ms_per_frame": 13.636,
+      "self_ms_per_frame": 0.003
+    },
+    {
+      "func": "module.py:1775:_wrapped_call_impl",
+      "ncalls": 290,
+      "cum_ms_per_frame": 13.633,
+      "self_ms_per_frame": 0.038
+    },
+    {
+      "func": "predictor.py:600:run_callbacks",
+      "ncalls": 1450,
+      "cum_ms_per_frame": 9.305,
+      "self_ms_per_frame": 0.032
+    },
+    {
+      "func": "track.py:98:on_predict_postprocess_end",
+      "ncalls": 290,
+      "cum_ms_per_frame": 9.242,
+      "self_ms_per_frame": 0.041
+    },
+    {
+      "func": "module.py:1783:_call_impl",
+      "ncalls": 290,
+      "cum_ms_per_frame": 8.865,
+      "self_ms_per_frame": 0.009
+    },
+    {
+      "func": "autobackend.py:302:forward",
+      "ncalls": 290,
+      "cum_ms_per_frame": 8.855,
+      "self_ms_per_frame": 0.018
+    },
+    {
+      "func": "onnx.py:284:forward",
+      "ncalls": 290,
+      "cum_ms_per_frame": 8.801,
+      "self_ms_per_frame": 0.009
+    },
+    {
+      "func": "onnxruntime_inference_collection.py:426:run_with_iobinding",
+      "ncalls": 290,
+      "cum_ms_per_frame": 8.785,
+      "self_ms_per_frame": 8.703
+    },
+    {
+      "func": "byte_tracker.py:274:update",
+      "ncalls": 290,
+      "cum_ms_per_frame": 8.376,
+      "self_ms_per_frame": 0.057
+    },
+    {
+      "func": "byte_tracker.py:388:_first_association",
+      "ncalls": 290,
+      "cum_ms_per_frame": 6.055,
+      "self_ms_per_frame": 0.007
+    },
+    {
+      "func": "predictor.py:183:preprocess",
+      "ncalls": 290,
+      "cum_ms_per_frame": 4.369,
+      "self_ms_per_frame": 0.258
+    },
+    {
+      "func": "byte_tracker.py:417:_apply_matches",
+      "ncalls": 290,
+      "cum_ms_per_frame": 3.423,
+      "self_ms_per_frame": 0.025
+    },
+    {
+      "func": "byte_tracker.py:429:_apply_match",
+      "ncalls": 6596,
+      "cum_ms_per_frame": 3.398,
+      "self_ms_per_frame": 0.037
+    },
+    {
+      "func": "oc_sort.py:58:update",
+      "ncalls": 6639,
+      "cum_ms_per_frame": 3.38,
+      "self_ms_per_frame": 0.137
+    },
+    {
+      "func": "predictor.py:225:pre_transform",
+      "ncalls": 290,
+      "cum_ms_per_frame": 3.315,
+      "self_ms_per_frame": 0.015
+    },
+    {
+      "func": "augment.py:1737:__call__",
+      "ncalls": 290,
+      "cum_ms_per_frame": 3.294,
+      "self_ms_per_frame": 0.007
+    },
+    {
+      "func": "augment.py:1824:apply_image",
+      "ncalls": 290,
+      "cum_ms_per_frame": 3.271,
+      "self_ms_per_frame": 0.14
+    },
+    {
+      "func": "oc_sort.py:215:get_dists",
+      "ncalls": 424,
+      "cum_ms_per_frame": 2.533,
+      "self_ms_per_frame": 0.024
+    },
+    {
+      "func": "byte_tracker.py:133:update",
+      "ncalls": 6639,
+      "cum_ms_per_frame": 2.273,
+      "self_ms_per_frame": 0.077
+    },
+    {
+      "func": "~:0:<resize>",
+      "ncalls": 290,
+      "cum_ms_per_frame": 2.181,
+      "self_ms_per_frame": 2.181
+    },
+    {
+      "func": "oc_sort.py:299:_velocity_direction_cost",
+      "ncalls": 424,
+      "cum_ms_per_frame": 2.006,
+      "self_ms_per_frame": 1.093
+    },
+    {
+      "func": "kalman_filter.py:201:update",
+      "ncalls": 6741,
+      "cum_ms_per_frame": 1.996,
+      "self_ms_per_frame": 0.407
+    },
+    {
+      "func": "predict.py:33:postprocess",
+      "ncalls": 290,
+      "cum_ms_per_frame": 1.532,
+      "self_ms_per_frame": 0.023
+    },
+    {
+      "func": "~:0:<copyMakeBorder>",
+      "ncalls": 290,
+      "cum_ms_per_frame": 0.95,
+      "self_ms_per_frame": 0.95
+    },
+    {
+      "func": "byte_tracker.py:177:xyxy",
+      "ncalls": 43919,
+      "cum_ms_per_frame": 0.926,
+      "self_ms_per_frame": 0.358
+    },
+    {
+      "func": "matching.py:62:iou_distance",
+      "ncalls": 983,
+      "cum_ms_per_frame": 0.861,
+      "self_ms_per_frame": 0.066
+    },
+    {
+      "func": "nms.py:13:non_max_suppression",
+      "ncalls": 290,
+      "cum_ms_per_frame": 0.828,
+      "self_ms_per_frame": 0.337
+    },
+    {
+      "func": "_linalg.py:374:solve",
+      "ncalls": 6741,
+      "cum_ms_per_frame": 0.8,
+      "self_ms_per_frame": 0.373
+    },
+    {
+      "func": "oc_sort.py:103:_compute_velocity",
+      "ncalls": 6725,
+      "cum_ms_per_frame": 0.714,
+      "self_ms_per_frame": 0.254
+    },
+    {
+      "func": "predict.py:103:construct_results",
+      "ncalls": 290,
+      "cum_ms_per_frame": 0.676,
+      "self_ms_per_frame": 0.007
+    },
+    {
+      "func": "predict.py:119:construct_result",
+      "ncalls": 290,
+      "cum_ms_per_frame": 0.669,
+      "self_ms_per_frame": 0.053
+    },
+    {
+      "func": "oc_sort.py:198:init_track",
+      "ncalls": 580,
+      "cum_ms_per_frame": 0.668,
+      "self_ms_per_frame": 0.055
+    },
+    {
+      "func": "byte_tracker.py:167:tlwh",
+      "ncalls": 50644,
+      "cum_ms_per_frame": 0.598,
+      "self_ms_per_frame": 0.465
+    },
+    {
+      "func": "ops.py:126:scale_boxes",
+      "ncalls": 290,
+      "cum_ms_per_frame": 0.595,
+      "self_ms_per_frame": 0.424
+    },
+    {
+      "func": "~:0:<method 'cpu' of 'torch._C.TensorBase' objects>",
+      "ncalls": 1740,
+      "cum_ms_per_frame": 0.574,
+      "self_ms_per_frame": 0.574
+    },
+    {
+      "func": "oc_sort.py:29:__init__",
+      "ncalls": 6905,
+      "cum_ms_per_frame": 0.55,
+      "self_ms_per_frame": 0.046
+    },
+    {
+      "func": "~:0:<method 'to' of 'torch._C.TensorBase' objects>",
+      "ncalls": 580,
+      "cum_ms_per_frame": 0.544,
+      "self_ms_per_frame": 0.544
+    },
+    {
+      "func": "_linalg.py:2598:norm",
+      "ncalls": 14428,
+      "cum_ms_per_frame": 0.518,
+      "self_ms_per_frame": 0.276
+    },
+    {
+      "func": "byte_tracker.py:56:__init__",
+      "ncalls": 6905,
+      "cum_ms_per_frame": 0.468,
+      "self_ms_per_frame": 0.093
+    },
+    {
+      "func": "kalman_filter.py:128:project",
+      "ncalls": 6741,
+      "cum_ms_per_frame": 0.457,
+      "self_ms_per_frame": 0.276
+    },
+    {
+      "func": "stracks.py:18:merge_track_pools",
+      "ncalls": 290,
+      "cum_ms_per_frame": 0.377,
+      "self_ms_per_frame": 0.014
+    },
+    {
+      "func": "ops.py:188:clip_boxes",
+      "ncalls": 580,
+      "cum_ms_per_frame": 0.368,
+      "self_ms_per_frame": 0.112
+    },
+    {
+      "func": "results.py:156:__getitem__",
+      "ncalls": 870,
+      "cum_ms_per_frame": 0.353,
+      "self_ms_per_frame": 0.333
+    },
+    {
+      "func": "results.py:299:__getitem__",
+      "ncalls": 290,
+      "cum_ms_per_frame": 0.348,
+      "self_ms_per_frame": 0.002
+    },
+    {
+      "func": "ops.py:71:time",
+      "ncalls": 1740,
+      "cum_ms_per_frame": 0.346,
+      "self_ms_per_frame": 0.015
+    },
+    {
+      "func": "results.py:379:_apply",
+      "ncalls": 290,
+      "cum_ms_per_frame": 0.345,
+      "self_ms_per_frame": 0.01
+    },
+    {
+      "func": "stracks.py:109:remove_duplicate_stracks",
+      "ncalls": 290,
+      "cum_ms_per_frame": 0.34,
+      "self_ms_per_frame": 0.024
+    },
+    {
+      "func": "byte_tracker.py:534:multi_predict",
+      "ncalls": 290,
+      "cum_ms_per_frame": 0.334,
+      "self_ms_per_frame": 0.002
+    },
+    {
+      "func": "byte_tracker.py:88:multi_predict",
+      "ncalls": 290,
+      "cum_ms_per_frame": 0.332,
+      "self_ms_per_frame": 0.043
+    },
+    {
+      "func": "__init__.py:1152:synchronize",
+      "ncalls": 1740,
+      "cum_ms_per_frame": 0.328,
+      "self_ms_per_frame": 0.04
+    },
+    {
+      "func": "ops.py:338:xywh2ltwh",
+      "ncalls": 6905,
+      "cum_ms_per_frame": 0.318,
+      "self_ms_per_frame": 0.264
+    },
+    {
+      "func": "oc_sort.py:85:_xyxy_center",
+      "ncalls": 28188,
+      "cum_ms_per_frame": 0.317,
+      "self_ms_per_frame": 0.203
+    },
+    {
+      "func": "_linalg.py:2864:multi_dot",
+      "ncalls": 6769,
+      "cum_ms_per_frame": 0.292,
+      "self_ms_per_frame": 0.111
+    },
+    {
+      "func": "ops.py:62:__exit__",
+      "ncalls": 870,
+      "cum_ms_per_frame": 0.258,
+      "self_ms_per_frame": 0.005
+    },
+    {
+      "func": "~:0:<method 'clamp_' of 'torch._C.TensorBase' objects>",
+      "ncalls": 2320,
+      "cum_ms_per_frame": 0.254,
+      "self_ms_per_frame": 0.254
+    },
+    {
+      "func": "oc_sort.py:251:_post_first_association",
+      "ncalls": 290,
+      "cum_ms_per_frame": 0.254,
+      "self_ms_per_frame": 0.014
+    },
+    {
+      "func": "byte_tracker.py:512:_format_output",
+      "ncalls": 290,
+      "cum_ms_per_frame": 0.254,
+      "self_ms_per_frame": 0.013
+    }
+  ]
+}

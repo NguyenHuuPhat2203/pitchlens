@@ -3,7 +3,7 @@
 import numpy as np
 from ultralytics import YOLO
 
-from src.backbone.gpu_utils import enable_tensorrt, safe_predict
+from src.backbone.gpu_utils import enable_gpu_letterbox, enable_tensorrt, safe_predict
 from src.model.track import PlayerTrack
 
 
@@ -39,9 +39,11 @@ class Tracker:
         self._device = device
         self._half = half
         self._conf = conf
-        if tensorrt and device != "cpu":
-            self.track(np.zeros((64, 64, 3), dtype=np.uint8))  # load with real args
-            enable_tensorrt(self._model, device)
+        if device != "cpu":
+            self.track(np.zeros((64, 64, 3), dtype=np.uint8))  # builds the predictor
+            if tensorrt:
+                enable_tensorrt(self._model, device)
+            enable_gpu_letterbox(self._model)
             self.reset()
 
     def reset(self) -> None:

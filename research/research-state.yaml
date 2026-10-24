@@ -34,23 +34,41 @@ hypotheses:
     priority: high
   - id: H3b
     statement: "TRT EP for both detectors cuts end-to-end ms/frame >= 20% with output guards holding."
-    status: supported      # -23.8%, guards hold
+    status: supported      # -23.8%, guards hold; shipped
     parent: H3
     priority: high
   - id: H4
     statement: "Running ball detection in parallel with player tracking hides >= 25% of its cost (GPU idle during CPU pre/post)."
-    status: pending
+    status: supported      # -3.1 ms/frame (~35% of ball cost), identical outputs; shipped
     priority: high
   - id: H5
     statement: "Moving video encode (8.3 ms) off the main loop removes it from ms/frame when output_video is set."
-    status: pending
+    status: pending        # deprioritised: H8 shows the CPU is saturated; encode is only on when output_video is set
     priority: low
   - id: H6
-    statement: "OC-SORT costs ~6.5 ms/frame on CPU; a cheaper association step removes >= 4 ms without more ID switches."
-    status: pending
+    statement: "OC-SORT costs >= 5 ms/frame on CPU, dominated by per-track Python work."
+    status: supported      # ~6.5-9 ms (cProfile)
+    priority: medium
+  - id: H6b
+    statement: "ByteTrack/FastTrack cut >= 2 ms with IDF1 within 2 points and ID switches <= 1.2x OC-SORT (SportsMOT football GT)."
+    status: refuted        # ByteTrack -3.2..-4.2 ms but 1.35x ID switches; keep OC-SORT
+    parent: H6
     priority: medium
   - id: H7
-    statement: "Ultralytics predict adds ~5.6 ms around the session; a thin ORT wrapper for the end2end [1,300,6] output removes >= 4 ms."
+    statement: "Ultralytics pre/post adds >= 4 ms around the session."
+    status: supported      # 5.9 ms; CPU letterbox 3.1 ms is the largest piece
+    priority: medium
+  - id: H8
+    statement: "Re-enabling OpenCV threading (disabled by Ultralytics) cuts >= 1.5 ms with identical outputs."
+    status: refuted        # mean +2.5 ms and unstable: CPU oversubscription
+    priority: medium
+  - id: H7b
+    statement: "Letterbox on the GPU (torch resize+pad of the uploaded uint8 frame) removes ~3 ms CPU per player call with detection parity."
+    status: pending
+    parent: H7
+    priority: high
+  - id: H9
+    statement: "Player detector at imgsz 768 instead of 960 cuts >= 3 ms/frame with IDF1 drop <= 1 point on SportsMOT football."
     status: pending
     priority: medium
 
@@ -61,17 +79,22 @@ experiments:
     divided by frames, model load excluded. Runs interleaved (B/T/B/T) because single runs drift ~20%.
     Guard: player recall >= 0.99 at IoU 0.5 vs baseline, ball in-play rate within 2 pp, shots compared.
   baseline_value: 52.31   # ms/frame, run_003 B mean
-  best_value: 39.85       # run_003 T mean
-  total_runs: 3
+  best_value: 36.93       # run_004 P mean (TRT + parallel ball), shipped
+  total_runs: 7
   trajectory:
     - {run_id: run_001, hypothesis: H1/H2, metric_value: null, change_summary: "latency breakdown (no pipeline change)"}
     - {run_id: run_002, hypothesis: H3, metric_value: null, change_summary: "raw TRT vs CUDA: player 14.77->8.10, ball 22.64->13.30 ms"}
-    - {run_id: run_003, hypothesis: H3b, metric_value: 39.85, baseline: 52.31, delta: "-23.8%", change_summary: "TRT EP for both detectors"}
+    - {run_id: run_003, hypothesis: H3b, metric_value: 39.85, baseline: 52.31, delta: "-23.8%", change_summary: "TRT EP for both detectors (shipped)"}
+    - {run_id: run_004, hypothesis: H4, metric_value: 36.93, baseline: 40.05, delta: "-7.8%", change_summary: "ball detection overlapped with player tracking (shipped)"}
+    - {run_id: run_005, hypothesis: H6/H7, metric_value: null, change_summary: "cProfile: OC-SORT ~8 ms, CPU letterbox ~3 ms"}
+    - {run_id: run_006, hypothesis: H6b, metric_value: null, change_summary: "ByteTrack -4 ms but +35% ID switches: rejected"}
+    - {run_id: run_007, hypothesis: H8, metric_value: 40.58, baseline: 38.04, delta: "+6.7%", change_summary: "cv2 16 threads: contention, rejected"}
 
 outer_loop:
-  cycle: 1
+  cycle: 2
   last_direction: deepen
   last_reflection: >
-    GPU inference was the largest term; TRT removed 12.5 ms/frame. The remaining 40 ms splits into
-    ~8 ms TRT player, ~9 ms ball, ~12 ms Ultralytics+OC-SORT CPU work, ~9 ms other. Next: ship TRT in
-    the product, then attack serial CPU/GPU idle time (H4) and CPU-side overheads (H7, H6).
+    52.3 -> 36.9 ms/frame (-29.4%) shipped with baseline-equal outputs. After TensorRT the bottleneck is CPU,
+    not GPU, and the CPU is saturated: parallelising more CPU work (H8) backfires, and swapping in a cheaper
+    tracker costs identity quality (H6b). Remaining levers must remove work: GPU letterbox (H7b), smaller
+    player input with a GT guard (H9), or a vectorised OC-SORT with identical outputs.

@@ -12,6 +12,7 @@ from onnx import TensorProto, helper
 from onnxruntime.capi import onnxruntime_pybind11_state as ort_state
 
 from src.backbone.gpu_utils import (
+    enable_gpu_letterbox,
     enable_tensorrt,
     execution_summary,
     fp16_model_path,
@@ -75,6 +76,24 @@ def test_enable_tensorrt_is_a_noop_on_cpu() -> None:
     from ultralytics import YOLO
 
     assert enable_tensorrt(YOLO("yolo26s.pt"), "cpu") is False
+
+
+@needs_cuda_model
+def test_gpu_letterbox_matches_opencv_letterbox() -> None:
+    from ultralytics import YOLO
+
+    yolo = YOLO(PLAYER_ONNX, task="detect")
+    _boxes(yolo)  # builds the predictor
+    opencv = yolo.predictor.preprocess
+    assert enable_gpu_letterbox(yolo) is True
+    gpu = yolo.predictor.preprocess
+
+    frame = _sample_frame()  # 1280x720: resize to 960x540, then pad
+    a, b = opencv([frame]), gpu([frame])
+    assert a.shape == b.shape == (1, 3, 960, 960)
+    assert float((a.float() - b.float()).abs().max()) * 255 < 1.5  # at most one grey level
+    padded_only = cv2.resize(frame, (960, 540))  # no resize needed: identical input
+    assert torch.equal(opencv([padded_only]), gpu([padded_only]))
 
 
 def _tiny_onnx(path) -> None:

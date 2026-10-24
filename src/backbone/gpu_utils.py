@@ -145,6 +145,51 @@ def enable_tensorrt(yolo, device: str) -> bool:
     return True
 
 
+def enable_gpu_letterbox(yolo) -> bool:
+    """Letterbox frames on the GPU instead of with OpenCV on the CPU.
+
+    Ultralytics resizes and pads each frame with ``cv2`` before uploading it
+    (~3 ms per 1280x720 frame on the main thread). This uploads the raw frame
+    and resizes/pads with torch instead, using ``LetterBox``'s own geometry, so
+    detections map back to the frame exactly as before. Bilinear rounding can
+    differ from OpenCV's fixed-point resize by one grey level on some pixels.
+    Without a resize (the 1280 ball model) the input is bit-identical.
+
+    Call after one real ``predict`` call (the predictor must exist); returns
+    False on CPU, where the OpenCV path is kept.
+    """
+    from ultralytics.data.augment import LetterBox
+
+    predictor = yolo.predictor
+    if predictor is None:
+        raise ValueError("enable_gpu_letterbox() needs one real predict call first")
+    if predictor.device.type != "cuda":
+        return False
+    cpu_preprocess = predictor.preprocess
+
+    def preprocess(im):
+        if isinstance(im, torch.Tensor) or len(im) != 1 or im[0].ndim != 3 or im[0].shape[2] != 3:
+            return cpu_preprocess(im)
+        model, frame = predictor.model, im[0]
+        auto = predictor.args.rect and not predictor.scale_fill and (  # as BasePredictor.pre_transform
+            model.format == "pt" or (getattr(model, "dynamic", False) and model.format != "imx")
+        )
+        box = LetterBox(predictor.imgsz, auto=auto, scale_fill=predictor.scale_fill, stride=model.stride)
+        p = box.get_params({"img": frame})
+        x = torch.from_numpy(frame).to(predictor.device).permute(2, 0, 1).unsqueeze(0)
+        w, h = p["new_unpad"]
+        if (h, w) != frame.shape[:2]:
+            x = torch.nn.functional.interpolate(x.float(), size=(h, w), mode="bilinear", align_corners=False)
+            x = x.round_().clamp_(0, 255)  # cv2 resizes uint8 -> integer grey levels
+        x = torch.nn.functional.pad(x, (p["left"], p["right"], p["top"], p["bottom"]), value=114)
+        x = x.flip(1)  # BGR -> RGB
+        return (x.half() if model.fp16 else x.float()).div_(255)
+
+    predictor.preprocess = preprocess
+    return True
+
+
+
 def _onnx_cuda_usable() -> bool:
     """Return True only if a session really runs on CUDAExecutionProvider.
 
