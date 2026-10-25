@@ -1,4 +1,5 @@
-ultralytics
+ultralytics==8.4.182  # src/backbone/gpu_utils.py patches predictor internals; re-validate before upgrading
+lap>=0.5.12  # linear assignment for src/serve/pipeline/ocsort.py (Ultralytics would auto-install it at import)
 supervision
 opencv-python>=4.8.0
 numpy>=1.24.0
@@ -7,5 +8,9 @@ scikit-learn>=1.3.0
 fastapi>=0.100.0
 uvicorn>=0.20.0
 torch>=2.0.0
+onnx>=1.16.0
+onnxruntime-gpu>=1.20.0,<1.27  # 1.27+ on PyPI needs CUDA 13; torch cu128 ships CUDA 12.8
 pydantic>=2.0.0
+python-multipart>=0.0.9
 structlog>=24.0.0
+yt-dlp

@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import torch
-from pydantic import BaseModel, Field, NonNegativeFloat, PositiveInt
-from pydantic import field_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    NonNegativeFloat,
+    PositiveFloat,
+    PositiveInt,
+    field_validator,
+    model_validator,
+)
 
 
 class ModelConfig(BaseModel):
@@ -15,7 +21,9 @@ class ModelConfig(BaseModel):
 
     player_detector: str = "yolo26s.pt"
     detection_conf: NonNegativeFloat = Field(default=0.3, le=1.0)
-    device: str = "auto"
+    device: str = Field(default="auto", validate_default=True)
+    half: bool | None = None  # None = FP16 when device is not CPU
+    tensorrt: bool = True  # ONNX on TensorRT EP when tensorrt-cu12-libs is installed
 
     @field_validator("device", mode="after")
     @classmethod
@@ -24,14 +32,19 @@ class ModelConfig(BaseModel):
             return "0" if torch.cuda.is_available() else "cpu"
         return v
 
+    @model_validator(mode="after")
+    def _resolve_half(self) -> ModelConfig:
+        if self.half is None:
+            self.half = self.device != "cpu"
+        return self
+
 
 class PipelineConfig(BaseModel):
     """Pipeline execution settings."""
 
     display: bool = True
-    output_video: Optional[str] = None
-    output_json: Optional[str] = None
-    cpu_workers: PositiveInt = 2
+    output_video: str | None = None
+    output_json: str | None = None
 
 
 class TeamClassifierConfig(BaseModel):
@@ -47,13 +60,14 @@ class BallDetectorConfig(BaseModel):
     enabled: bool = True
     model: str = "yolo26s.pt"
     max_lost_frames: PositiveInt = 15
+    gate_px: PositiveFloat = 150.0
 
 
 class ShotDetectorConfig(BaseModel):
-    """Shot event detection thresholds."""
+    """Shot event detection thresholds (image pixels, real video fps)."""
 
     angle_threshold: NonNegativeFloat = 30.0
-    accel_threshold: NonNegativeFloat = 50.0
+    accel_threshold: NonNegativeFloat = 800.0
 
 
 class CalibrationConfig(BaseModel):
@@ -61,7 +75,17 @@ class CalibrationConfig(BaseModel):
 
     enabled: bool = True
     speed_window: PositiveInt = 12
-    camera_dir: Optional[str] = None
+    camera_dir: str | None = None
+
+
+class TimelineConfig(BaseModel):
+    """Offline tactical timeline settings."""
+
+    enabled: bool = True
+    max_ball_player_distance_px: PositiveFloat = 80.0
+    min_possession_frames: PositiveInt = 3
+    output_json: str | None = None
+    benchmark_json: str | None = None
 
 
 class AppConfig(BaseModel):
@@ -74,6 +98,7 @@ class AppConfig(BaseModel):
     ball_detector: BallDetectorConfig = BallDetectorConfig()
     shot_detector: ShotDetectorConfig = ShotDetectorConfig()
     calibration: CalibrationConfig = CalibrationConfig()
+    timeline: TimelineConfig = TimelineConfig()
 
 
 class VideoConfig(BaseModel):

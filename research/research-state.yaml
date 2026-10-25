@@ -1,0 +1,125 @@
+project:
+  title: "Pipeline throughput for offline football analysis"
+  question: >
+    Where does per-frame time go in the full pipeline (player track + ball + team + timeline)
+    on an RTX 3050 Ti Laptop, and which changes cut end-to-end ms/frame without changing
+    detection output beyond the accepted FP16 tolerance?
+  status: active
+  started: "2026-10-19"
+  domain: "inference systems / video analytics"
+
+literature:
+  key_papers:
+    - id: ultralytics-yolo26-speed
+      title: "Ultralytics YOLO26 detection benchmarks"
+      relevance: "YOLO26s 2.5 ms/frame at 640 on T4 TensorRT10; our player forward is 6.6 ms at 960 (TRT FP16)"
+    - id: ort-trt-ep
+      title: "ONNX Runtime TensorRT / CUDA execution providers"
+      relevance: "TRT EP runs the existing fixed-shape ONNX files without the original .pt"
+    - id: ocsort
+      title: "OC-SORT (Cao et al., arXiv 2203.14360), Ultralytics 8.4.182 implementation"
+      relevance: "reference implementation the batched port must reproduce exactly"
+  open_problems:
+    - "ball model 1280x1280 input wastes 44% on padding; training weights not in repo"
+
+hypotheses:
+  - id: H1
+    statement: "Raw player session.run <= 12 ms and <= 40% of player_track."
+    status: refuted        # 14.9 ms, 55%
+    priority: high
+  - id: H2
+    statement: "Raw ball session.run >= 60% of ball_detect."
+    status: supported      # 83%
+    priority: high
+  - id: H3
+    statement: "TensorRT FP16 cuts raw inference >= 2x for both models with parity."
+    status: inconclusive   # 1.7-1.8x with parity
+    priority: high
+  - id: H3b
+    statement: "TRT EP for both detectors cuts end-to-end ms/frame >= 20% with guards holding."
+    status: supported      # -23.8%; shipped
+    parent: H3
+    priority: high
+  - id: H4
+    statement: "Ball detection in parallel with player tracking hides >= 25% of its cost."
+    status: supported      # -3.1 ms, identical outputs; shipped
+    priority: high
+  - id: H5
+    statement: "Moving video encode off the main loop removes it from ms/frame when output_video is set."
+    status: pending        # video output adds ~20 ms/frame (render 2.7 + encode 7.2 measured); next lever for video export
+    priority: medium
+  - id: H6
+    statement: "OC-SORT costs >= 5 ms/frame on CPU, dominated by per-track Python work."
+    status: supported      # cProfile; unprofiled it is 3.6-4.9 ms (H6c)
+    priority: medium
+  - id: H6b
+    statement: "ByteTrack/FastTrack cut >= 2 ms with IDF1 within 2 and ID switches <= 1.2x OC-SORT."
+    status: refuted        # ByteTrack 1.35x ID switches
+    parent: H6
+    priority: medium
+  - id: H6c
+    statement: "Batched OC-SORT port + predict: identical tracks, >= 3 ms/frame faster."
+    status: refuted        # -2.65 ms; frames differed at image border (missing Results.update clip)
+    parent: H6
+    priority: high
+  - id: H6d
+    statement: "Port v2 + clip: byte-identical frames.json, >= 3 ms faster (ship at >= 2 ms)."
+    status: supported      # -4.54 ms, identical; shipped
+    parent: H6c
+    priority: high
+  - id: H7
+    statement: "Ultralytics pre/post adds >= 4 ms around the session."
+    status: supported      # 5.9 ms
+    priority: medium
+  - id: H7b
+    statement: "Letterbox on the GPU removes the CPU letterbox, >= 2 ms/frame, guards holding."
+    status: supported      # -5.36 ms; shipped
+    parent: H7
+    priority: high
+  - id: H8
+    statement: "Re-enabling OpenCV threading cuts >= 1.5 ms with identical outputs."
+    status: refuted        # contention
+    priority: medium
+  - id: H9
+    statement: "Player detector at 768x768 cuts >= 3 ms/frame with IDF1 drop <= 1."
+    status: refuted        # IDF1 -5.9
+    priority: medium
+  - id: H9b
+    statement: "Player detector at 544x960 (same scale): accuracy within +-0.5, forward >= 30% faster."
+    status: refuted        # accuracy changed (MOTA +5.6, FN +12.5%), forward -26%; e2e -1.38 ms < 1.5 -> not shipped
+    parent: H9
+    priority: medium
+
+experiments:
+  proxy_metric: >
+    End-to-end ms/frame of Pipeline.run on data/sample.mp4 (1505 frames, 1280x720, 25 fps),
+    default config with display=false, output_video=null, JSON+timeline on; wall time of run()
+    divided by frames, model load excluded. Runs interleaved (S/V/S/V); spread < 1 ms.
+    Guards: player recall >= 0.99 at IoU 0.5 vs baseline (or byte-identical frames.json when claimed),
+    ball in-play rate within 2 pp, shots compared; SportsMOT IDF1/MOTA/ID switches for tracker/input changes.
+  baseline_value: 52.31   # run_003 B
+  best_value: 27.55       # run_012 V (product smoke: 27.64)
+  total_runs: 12
+  trajectory:
+    - {run_id: run_001, hypothesis: H1/H2, metric_value: null, change_summary: "latency breakdown"}
+    - {run_id: run_002, hypothesis: H3, metric_value: null, change_summary: "raw TRT vs CUDA"}
+    - {run_id: run_003, hypothesis: H3b, metric_value: 39.85, baseline: 52.31, delta: "-23.8%", change_summary: "TRT EP (shipped)"}
+    - {run_id: run_004, hypothesis: H4, metric_value: 36.93, baseline: 40.05, delta: "-7.8%", change_summary: "parallel ball (shipped)"}
+    - {run_id: run_005, hypothesis: H6/H7, metric_value: null, change_summary: "cProfile of player_track"}
+    - {run_id: run_006, hypothesis: H6b, metric_value: null, change_summary: "ByteTrack rejected on ID switches"}
+    - {run_id: run_007, hypothesis: H8, metric_value: 40.58, baseline: 38.04, delta: "+6.7%", change_summary: "cv2 threads rejected"}
+    - {run_id: run_008, hypothesis: H7b, metric_value: 32.45, baseline: 37.81, delta: "-14.2%", change_summary: "GPU letterbox (shipped)"}
+    - {run_id: run_009, hypothesis: H9, metric_value: null, change_summary: "input-shape variants on SportsMOT"}
+    - {run_id: run_010, hypothesis: H9b, metric_value: 30.96, baseline: 32.34, delta: "-4.3%", change_summary: "544x960 below ship bar"}
+    - {run_id: run_011, hypothesis: H6c, metric_value: 29.29, baseline: 31.94, delta: "-8.3%", change_summary: "port v1, border clip missing"}
+    - {run_id: run_012, hypothesis: H6d, metric_value: 27.55, baseline: 32.09, delta: "-14.1%", change_summary: "port v2 + clip, identical (shipped)"}
+
+outer_loop:
+  cycle: 3
+  last_direction: conclude
+  last_reflection: >
+    52.3 -> 27.6 ms/frame shipped (-47%, 36 fps) with outputs within FP16 noise, or byte-identical where claimed.
+    Removing CPU work paid more than its own duration every time (H7b, H6d), because the main thread
+    and the ball worker contend for the CPU. Changes that alter detection geometry or the tracker
+    were rejected on identity metrics (H6b, H9, H9b). Next round, if wanted: ball-model padding
+    (needs training weights), scheduling of the two detectors on one GPU, video export path (H5).

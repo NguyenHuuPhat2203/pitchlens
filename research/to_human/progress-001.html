@@ -1,0 +1,49 @@
+<!doctype html><html lang="vi"><meta charset="utf-8">
+<title>Pipeline throughput — progress 001</title>
+<style>
+body{font:15px/1.55 system-ui,sans-serif;max-width:980px;margin:32px auto;padding:0 20px;color:#1d1d1f;background:#fff}
+h1{font-size:24px;margin-bottom:4px} h2{font-size:18px;margin-top:32px;border-bottom:1px solid #ddd;padding-bottom:4px}
+.sub{color:#666} table{border-collapse:collapse;width:100%;font-size:14px}
+td,th{border-bottom:1px solid #eee;padding:6px 8px;text-align:left;vertical-align:top} th{background:#f6f6f6}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+.b{padding:1px 8px;border-radius:10px;font-size:12px;white-space:nowrap}
+.ok{background:#d8f3dc;color:#1b5e20} .no{background:#fde2e1;color:#8a1c1c}
+.mid{background:#fff1c2;color:#7a5b00} .todo{background:#e8eaf6;color:#283593}
+.grid{stroke:#e5e5e5} .base{stroke:#c62828;stroke-dasharray:6 4} .line{fill:none;stroke:#1565c0;stroke-width:3}
+.dot{fill:#1565c0} .axis{font-size:12px;fill:#666} .val{font-size:13px;font-weight:600;fill:#1d1d1f}
+.kpi{display:flex;gap:16px;margin:16px 0} .kpi div{flex:1;background:#f6f8fb;border-radius:10px;padding:12px 16px}
+.kpi b{display:block;font-size:24px}
+</style>
+<h1>Tối ưu thông lượng pipeline phân tích bóng đá</h1>
+<div class="sub">RTX 3050 Ti Laptop · data/sample.mp4 (1505 frame, 1280×720) · cấu hình mặc định, JSON-only · đo xen kẽ để loại nhiễu nhiệt</div>
+
+<div class="kpi"><div><b>52.3 → 36.9 ms</b>ms/frame đã ship</div><div><b>19.1 → 27.1 fps</b>−29.4% thời gian</div>
+<div><b>Output giữ nguyên</b>recall cầu thủ 0.997; bóng &amp; cú sút trùng khớp</div></div>
+
+<h2>Quỹ đạo tối ưu</h2>
+<svg viewBox="0 0 760 300" width="100%" role="img" aria-label="ms per frame by shipped change"><line x1="60" x2="700" y1="240.0" y2="240.0" class="grid"/><text x="52" y="244.0" class="axis" text-anchor="end">30</text><line x1="60" x2="700" y1="204.0" y2="204.0" class="grid"/><text x="52" y="208.0" class="axis" text-anchor="end">35</text><line x1="60" x2="700" y1="168.0" y2="168.0" class="grid"/><text x="52" y="172.0" class="axis" text-anchor="end">40</text><line x1="60" x2="700" y1="132.0" y2="132.0" class="grid"/><text x="52" y="136.0" class="axis" text-anchor="end">45</text><line x1="60" x2="700" y1="96.0" y2="96.0" class="grid"/><text x="52" y="100.0" class="axis" text-anchor="end">50</text><line x1="60" x2="700" y1="60.0" y2="60.0" class="grid"/><text x="52" y="64.0" class="axis" text-anchor="end">55</text><line x1="60" x2="700" y1="79.36799999999998" y2="79.36799999999998" class="base"/><polyline points="60.0,79.36799999999998 380.0,169.07999999999998 700.0,190.104" class="line"/><circle cx="60.0" cy="79.36799999999998" r="5" class="dot"/><text x="60.0" y="67.36799999999998" text-anchor="middle" class="val">52.3 ms</text><text x="54.0" y="262" text-anchor="start" class="axis">Baseline (CUDA EP FP16)</text><circle cx="380.0" cy="169.07999999999998" r="5" class="dot"/><text x="380.0" y="157.07999999999998" text-anchor="middle" class="val">39.9 ms</text><text x="380.0" y="262" text-anchor="middle" class="axis">+ TensorRT EP</text><circle cx="700.0" cy="190.104" r="5" class="dot"/><text x="700.0" y="178.104" text-anchor="middle" class="val">36.9 ms</text><text x="706.0" y="262" text-anchor="end" class="axis">+ ball detection in parallel</text><text x="18" y="150.0" class="axis" transform="rotate(-90 18 150.0)" text-anchor="middle">ms / frame (lower is better)</text></svg>
+
+<h2>Phát hiện chính</h2>
+<ol>
+<li><b>Lúc đầu GPU là nút thắt.</b> Forward thuần: cầu thủ 14.9 ms, bóng 28.6 ms. Copy dữ liệu không đáng kể (IO binding chỉ tiết kiệm ≤ 1.7 ms).</li>
+<li><b>TensorRT FP16 nhanh 1.7–1.8× mỗi model</b> với output gần như trùng CUDA FP16 (IoU ≥ 0.994). End-to-end −23.8%. Ultralytics luôn mở ONNX bằng CUDA EP, nên cần thay session sau lần gọi thật đầu tiên.</li>
+<li><b>Chạy model bóng song song với tracking cầu thủ</b> giấu được ~35% chi phí của nó (−3.1 ms), output trùng bit.</li>
+<li><b>Sau TensorRT, nút thắt chuyển sang CPU:</b> OC-SORT ~6.5–9 ms, letterbox trên CPU ~3 ms, trong khi GPU chỉ còn 8.8 ms.</li>
+<li><b>Hai kết quả âm có giá trị:</b>
+  <ul>
+  <li>ByteTrack nhanh hơn 4 ms nhưng <b>tăng 35% đổi ID</b> trên ground truth SportsMOT. Timeline gán quyền giữ bóng theo ID, nên giữ OC-SORT.</li>
+  <li>Bật lại đa luồng OpenCV gây tranh chấp CPU: chậm hơn và thất thường. CPU đã bão hoà, chỉ còn cách <i>bớt việc</i>, không thể song song hoá thêm.</li>
+  </ul></li>
+</ol>
+
+<h2>Bản đồ giả thuyết</h2>
+<table><tr><th>ID</th><th>Trạng thái</th><th>Phát biểu (đã khoá trước khi chạy)</th></tr><tr><td>H1</td><td><span class="b no">refuted</span></td><td>Raw player session.run &lt;= 12 ms and &lt;= 40% of player_track; the rest is Ultralytics/copies/OC-SORT.</td></tr><tr><td>H2</td><td><span class="b ok">supported</span></td><td>Raw ball session.run &gt;= 60% of ball_detect.</td></tr><tr><td>H3</td><td><span class="b mid">inconclusive</span></td><td>TensorRT FP16 (ORT TRT EP) cuts raw inference &gt;= 2x for both models with parity.</td></tr><tr><td>H3b</td><td><span class="b ok">supported</span></td><td>TRT EP for both detectors cuts end-to-end ms/frame &gt;= 20% with output guards holding.</td></tr><tr><td>H4</td><td><span class="b ok">supported</span></td><td>Running ball detection in parallel with player tracking hides &gt;= 25% of its cost (GPU idle during CPU pre/post).</td></tr><tr><td>H5</td><td><span class="b todo">pending</span></td><td>Moving video encode (8.3 ms) off the main loop removes it from ms/frame when output_video is set.</td></tr><tr><td>H6</td><td><span class="b ok">supported</span></td><td>OC-SORT costs &gt;= 5 ms/frame on CPU, dominated by per-track Python work.</td></tr><tr><td>H6b</td><td><span class="b no">refuted</span></td><td>ByteTrack/FastTrack cut &gt;= 2 ms with IDF1 within 2 points and ID switches &lt;= 1.2x OC-SORT (SportsMOT football GT).</td></tr><tr><td>H7</td><td><span class="b ok">supported</span></td><td>Ultralytics pre/post adds &gt;= 4 ms around the session.</td></tr><tr><td>H8</td><td><span class="b no">refuted</span></td><td>Re-enabling OpenCV threading (disabled by Ultralytics) cuts &gt;= 1.5 ms with identical outputs.</td></tr><tr><td>H7b</td><td><span class="b todo">pending</span></td><td>Letterbox on the GPU (torch resize+pad of the uploaded uint8 frame) removes ~3 ms CPU per player call with detection parity.</td></tr><tr><td>H9</td><td><span class="b todo">pending</span></td><td>Player detector at imgsz 768 instead of 960 cuts &gt;= 3 ms/frame with IDF1 drop &lt;= 1 point on SportsMOT football.</td></tr></table>
+
+<h2>Bước tiếp theo</h2>
+<ul>
+<li><b>H7b</b>: letterbox trên GPU (upload uint8, resize+pad bằng torch). Kỳ vọng −3 ms CPU mỗi lần gọi model cầu thủ, có guard parity.</li>
+<li><b>H9</b>: model cầu thủ ở imgsz 768 thay vì 960. Đánh đổi độ chính xác, đo IDF1 trên ground truth SportsMOT; ngưỡng ≤ 1 điểm.</li>
+<li>OC-SORT vectorised với output giống hệt: lợi lớn nhất còn lại (~5 ms) nhưng là một dự án code riêng.</li>
+</ul>
+<p class="sub">Chi tiết từng thí nghiệm: <code>research/experiments/*/protocol.md</code> (khoá trong git trước khi chạy) và <code>analysis.md</code>.</p>
+</html>

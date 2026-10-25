@@ -44,3 +44,17 @@ class ProcessedFrame:
     players: list[PlayerTrack] = field(default_factory=list)
     ball: object | None = None
     events: list = field(default_factory=list)
+
+
+@dataclass
+class RunResult:
+    """Outcome of one ``Pipeline.run()`` call.
+
+    Annotated frames are displayed or encoded as they are produced and
+    never returned, so long videos do not accumulate in memory.
+
+    Attributes:
+        frame_count: Frames processed.
+    """
+
+    frame_count: int

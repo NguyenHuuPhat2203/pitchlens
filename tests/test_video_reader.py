@@ -73,3 +73,12 @@ class TestVideoReader:
         """VideoReader raises FileNotFoundError for a nonexistent path."""
         with pytest.raises(FileNotFoundError):
             VideoReader("nonexistent_video_12345.mp4")
+
+
+def test_fps_matches_container_and_drives_timestamps(tmp_path) -> None:
+    """reader.fps is the file's real rate, and timestamps follow it."""
+    path = str(tmp_path / "t.mp4")
+    _make_test_video(path, frame_count=6, fps=10.0)
+    reader = VideoReader(path)
+    assert reader.fps == pytest.approx(10.0)
+    assert [f.timestamp for f in reader][-1] == pytest.approx(0.5)

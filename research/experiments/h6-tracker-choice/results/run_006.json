@@ -1,0 +1,62 @@
+[
+  {
+    "tracker": "ocsort.yaml",
+    "idf1": 61.27,
+    "mota": 60.54,
+    "id_switches": 100,
+    "fp": 3338,
+    "fn": 728,
+    "sportsmot_track_ms": 20.52,
+    "sample_track_ms": 22.13
+  },
+  {
+    "tracker": "bytetrack.yaml",
+    "idf1": 61.04,
+    "mota": 59.86,
+    "id_switches": 135,
+    "fp": 3318,
+    "fn": 785,
+    "sportsmot_track_ms": 16.67,
+    "sample_track_ms": 17.42
+  },
+  {
+    "tracker": "fasttrack.yaml",
+    "idf1": 58.92,
+    "mota": 59.63,
+    "id_switches": 144,
+    "fp": 3313,
+    "fn": 805,
+    "sportsmot_track_ms": 17.29,
+    "sample_track_ms": 18.13
+  },
+  {
+    "tracker": "ocsort.yaml",
+    "idf1": 61.27,
+    "mota": 60.54,
+    "id_switches": 100,
+    "fp": 3338,
+    "fn": 728,
+    "sportsmot_track_ms": 19.08,
+    "sample_track_ms": 20.66
+  },
+  {
+    "tracker": "bytetrack.yaml",
+    "idf1": 61.04,
+    "mota": 59.86,
+    "id_switches": 135,
+    "fp": 3318,
+    "fn": 785,
+    "sportsmot_track_ms": 16.48,
+    "sample_track_ms": 17.06
+  },
+  {
+    "tracker": "fasttrack.yaml",
+    "idf1": 58.92,
+    "mota": 59.63,
+    "id_switches": 144,
+    "fp": 3313,
+    "fn": 805,
+    "sportsmot_track_ms": 16.99,
+    "sample_track_ms": 18.06
+  }
+]

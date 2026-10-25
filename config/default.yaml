@@ -3,15 +3,16 @@ video:
   source: "data/sample.mp4"        # Path to input video file.
 
 model:
-  player_detector: "yolo26s.pt"    # YOLO model for player detection.
-  detection_conf: 0.3              # Minimum confidence threshold.
+  player_detector: "models/player_detector.onnx"    # YOLO model for player detection.
+  detection_conf: 0.3              # Minimum confidence for player and ball detections.
   device: "auto"                   # "auto" = CUDA if available, else CPU.
+  half: null                       # null = FP16 on CUDA, FP32 on CPU. FP16 parity: recall ≥ 0.998, IoU 0.979/0.956 (accepted).
+  tensorrt: true                   # TensorRT EP for ONNX on CUDA (needs tensorrt-cu12-libs 10.x; else CUDA EP). First run builds engines (minutes), cached in .cache/trt.
 
 pipeline:
   display: true                    # Show annotated video in window.
   output_video: null               # Path for annotated output video (null = skip).
   output_json: null                # Path for per-frame JSON output (null = skip).
-  cpu_workers: 2                   # Thread pool size for CPU-bound tasks.
 
 team_classifier:
   enabled: true                    # Whether to classify teams by jersey color.
@@ -19,14 +20,22 @@ team_classifier:
 
 ball_detector:
   enabled: true                    # Whether to detect and track the ball.
-  model: "yolo26s.pt"             # Model for ball detection.
+  model: "models/ball_detector.onnx"             # Model for ball detection.
   max_lost_frames: 15              # Frames before declaring ball lost.
+  gate_px: 150.0                   # Ignore ball detections farther than this (px) from the predicted position.
 
 shot_detector:
-  angle_threshold: 30.0            # Minimum velocity direction change (degrees).
-  accel_threshold: 50.0            # Minimum acceleration magnitude (px/s²).
+  angle_threshold: 30.0            # Minimum velocity direction change (degrees) over 0.25 s.
+  accel_threshold: 800.0           # Minimum mean acceleration over 0.25 s (image px/s², uses the video's fps).
 
 calibration:
-  enabled: true                    # Whether to use pitch calibration + speed.
+  enabled: true                    # Pitch calibration + speed, automatic per frame from the painted lines.
   speed_window: 12                 # Frames to smooth speed/direction over.
-  camera_dir: null                 # SynLoc camera model directory (null=manual clicks).
+  camera_dir: null                 # SynLoc camera model directory for a fixed known camera (null = automatic).
+
+timeline:
+  enabled: true                         # Build offline tactical timeline.
+  max_ball_player_distance_px: 80.0     # Max pixel distance for possession.
+  min_possession_frames: 3              # Frames needed to confirm possession.
+  output_json: null                     # Optional tactical timeline path.
+  benchmark_json: null                   # Optional stage timing report path.

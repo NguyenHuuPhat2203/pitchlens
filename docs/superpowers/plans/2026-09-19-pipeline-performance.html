@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="vi">
+<meta charset="utf-8">
+<title>Pipeline Performance Plan</title>
+<link rel="stylesheet" href="htmlplan.css">
+<script src="htmlplan.js" defer></script>
+<body>
+
+<header>
+  <h1>GPU FP16 và RAM cho pipeline football-tracker</h1>
+  <doc-changes new="2" changed="11"></doc-changes>
+  <details class="thread"><summary>Why · 4 requests</summary>
+    <doc-quote via="prompt" from="the user">Về hiệu năng, yôi muốn hệ thống chạy nhanh hơn hiện tại</doc-quote>
+    <doc-quote via="prompt" from="the user">Tìm ra những bottle neck trong pipeline, những coh64 làm hiệu năng giảm, hoặc logic xử lý không phùhợp</doc-quote>
+    <doc-quote via="prompt" from="the user">Ghi plan chi tiết đi</doc-quote>
+    <doc-quote via="prompt" from="the user">mặc định nếu dùng cuda thì auto fp16 nhé</doc-quote>
+  </details>
+</header>
+
+<main>
+<doc-plan>
+
+<!-- ═════ 1 · GPU FP16 ═════ -->
+<doc-claim>
+  <p>Inference chạy trên RTX 3050 Ti, FP16 mặc định.</p>
+  <doc-mock frame="terminal" title=".venv" w="470" caption="Trên là .venv cũ, dưới là mục tiêu."><template><span class="dim">> trước</span>
+<span class="r">torch 2.14.0+cpu  cuda_available False</span>
+<span class="r">['AzureExecutionProvider', 'CPUExecutionProvider']</span>
+
+<span class="dim">> sau Task 1-3</span>
+<span class="g">torch 2.x+cu128   cuda_available True</span>
+<span class="g">['CUDAExecutionProvider', 'CPUExecutionProvider']</span>
+<span class="dim">pipeline_device</span> half=<span class="g">true</span></template></doc-mock>
+
+  <doc-claim>
+    <p><code>.venv</code> tạo lại; torch <code>cu128</code> cài trước requirements.</p>
+    <doc-code title="Task 1 · lệnh cài" lang="bash">
+<script type="text/plain">
+D:/Apps/Python312/python.exe -m venv .venv
+.venv/Scripts/python.exe -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+.venv/Scripts/python.exe -m pip install -r requirements.txt pytest ruff
+</script>
+      <doc-pin line="2" tone="info" title="Cài trước">pip không kéo bản torch CPU nữa.</doc-pin>
+    </doc-code>
+    <doc-ask id="cuda">
+      <p>Cài torch bản CUDA nào vào .venv?</p>
+      <label><input type="radio" name="cuda" value="cu124"> cu124</label>
+      <label><input type="radio" name="cuda" value="cu126"> cu126</label>
+      <label><input type="radio" name="cuda" value="cu128" checked> cu128 <small>đã chọn khi review</small></label>
+    </doc-ask>
+    <doc-claim>
+      <p><b>requirements.txt</b> · thêm onnx, onnxruntime-gpu</p>
+      <doc-code diff file="requirements.txt" lang="text">
+<script type="text/plain">
+@@ -9,3 +9,5 @@
+ torch>=2.0.0
++onnx>=1.16.0
++onnxruntime-gpu>=1.20.0
+ pydantic>=2.0.0
+ python-multipart>=0.0.9
+</script>
+      </doc-code>
+    </doc-claim>
+  </doc-claim>
+
+  <doc-claim>
+    <p><code>half</code> bật trên CUDA, tắt trên CPU, config ghi đè được.</p>
+    <doc-code diff file="src/config.py" lang="py">
+<script type="text/plain">
+@@ -21,10 +21,17 @@
+     player_detector: str = "yolo26s.pt"
+     detection_conf: NonNegativeFloat = Field(default=0.3, le=1.0)
+     device: str = "auto"
++    half: bool | None = None  # None = FP16 when device is not CPU
+ 
+     @field_validator("device", mode="after")
+     @classmethod
+     def _resolve_device(cls, v: str) -> str:
+         if v == "auto":
+             return "0" if torch.cuda.is_available() else "cpu"
+         return v
++
++    @model_validator(mode="after")
++    def _resolve_half(self) -> ModelConfig:
++        if self.half is None:
++            self.half = self.device != "cpu"
++        return self
+</script>
+      <doc-pin line="24" tone="ok" title="Mặc định auto">Theo yêu cầu: CUDA thì FP16.</doc-pin>
+    </doc-code>
+  </doc-claim>
+
+  <doc-claim>
+    <p>Ultralytics đọc FP16 từ file ONNX, nên pipeline chuyển file một lần.</p>
+    <doc-code title="ultralytics/nn/backends/onnx.py · upstream" lang="py">
+<script type="text/plain">
+self.dynamic = isinstance(self.session.get_outputs()[0].shape[0], str)
+self.fp16 = "float16" in self.session.get_inputs()[0].type
+</script>
+      <doc-pin line="2" tone="warn" title="half=True bị bỏ qua với ONNX">Cần file có input float16.</doc-pin>
+    </doc-code>
+    <doc-ask id="parity">
+      <p>Nếu FP16 lệch quá ngưỡng ở một model thì sao?</p>
+      <label><input type="radio" name="parity" value="global" checked> Đặt <code>half: false</code> và báo lại <small>một cờ chung; đơn giản nhất</small></label>
+      <label><input type="radio" name="parity" value="per-model"> Cờ half riêng mỗi model <small>thêm 1 field config</small></label>
+    </doc-ask>
+    <doc-claim at="src/serve/pipeline/gpu_utils.py:40">
+      <p><b>gpu_utils.py:40</b> · fp16_model_path()</p>
+      <doc-code title="gpu_utils.py · sketch" lang="py" start="41">
+<script type="text/plain">
+def fp16_model_path(model_path: str) -> str:
+    src = Path(model_path)
+    if src.suffix != ".onnx":
+        return model_path                      # .pt: half= passed to track()
+    dst = src.with_name(f"{src.stem}.fp16.onnx")
+    if not dst.exists() or dst.stat().st_mtime < src.stat().st_mtime:
+        import onnx
+        from onnxruntime.transformers.float16 import convert_float_to_float16
+
+        model = convert_float_to_float16(onnx.load(str(src)), keep_io_types=False)
+        onnx.save(model, str(dst))
+    return str(dst)
+</script>
+        <doc-pin line="45" tone="info" title="Cache trong models/">Thư mục đã nằm trong .gitignore.</doc-pin>
+      </doc-code>
+    </doc-claim>
+  </doc-claim>
+
+  <doc-claim>
+    <p>FP16 phải giữ kết quả; benchmark phải nhanh ít nhất 10 lần.</p>
+    <doc-mock frame="terminal" title="Task 5 · cổng kiểm tra" w="470" caption="Số thật chỉ ghi sau khi đo."><template><b>parity, 50 frame sample.mp4</b>
+recall (IoU≥0.5)   <span class="g">≥ 0.99</span>
+mean IoU           <span class="g">≥ 0.98</span>
+mean |Δconf|       <span class="g">≤ 0.02</span>
+
+<b>player_track median</b>
+CPU (cũ)           <span class="r">233.0 ms</span>
+CUDA FP32          <span class="dim">đo</span>
+CUDA FP16          <span class="g">≤ 23.3 ms</span></template></doc-mock>
+    <doc-ask id="trt">
+      <p>Export TensorRT FP16 ngay trong plan này?</p>
+      <label><input type="radio" name="trt" value="later" checked> Không, đo CUDA trước</label>
+      <label><input type="radio" name="trt" value="now"> Có, làm luôn</label>
+    </doc-ask>
+  </doc-claim>
+</doc-claim>
+
+<!-- ═════ 2 · RunResult ═════ -->
+<doc-claim>
+  <p>Batch JSON-only không giữ ảnh frame trong RAM.</p>
+  <doc-schema id="runresult" lang="py" title="RunResult · src/model/frame.py">
+<script type="text/plain">
+@dataclass
+class RunResult:
+    frame_count: int                                          # frames processed
+    frames: list[np.ndarray] = field(default_factory=list)    # empty unless display/output_video
+</script>
+  </doc-schema>
+  <doc-ask id="contract">
+    <p>Khi không render, <code>run()</code> trả về gì?</p>
+    <label><input type="radio" name="contract" value="empty"> List rỗng</label>
+    <label><input type="radio" name="contract" value="result" checked> RunResult <small>đã chọn khi review</small></label>
+  </doc-ask>
+
+  <doc-claim>
+    <p><code>run()</code> chỉ lưu ảnh khi render và trả <code>RunResult</code>.</p>
+    <doc-code diff file="src/serve/pipeline/pipeline.py" lang="py">
+<script type="text/plain">
+@@ -129,5 +129,6 @@
+                 annotated, processed = self._process_frame_image(
+                     frame_image, frame_index, render=render
+                 )
+-                annotated_frames[frame_index] = annotated
++                if render:
++                    annotated_frames[frame_index] = annotated
+                 processed_frames.append(processed)
+</script>
+      <doc-pin line="132" tone="risk" title="Hiện tại: luôn giữ mọi frame">Trận 90 phút 1080p cần hàng trăm GB.</doc-pin>
+    </doc-code>
+  </doc-claim>
+
+  <doc-claim>
+    <p><code>main.py</code> log số frame từ <code>RunResult</code>.</p>
+    <doc-code diff file="main.py" lang="py">
+<script type="text/plain">
+@@ -23,4 +23,4 @@
+     _log.info("pipeline_start", source=source)
+     pipeline = Pipeline(config)
+-    frames = pipeline.run(source)
+-    _log.info("pipeline_done", total_frames=len(frames))
++    result = pipeline.run(source)
++    _log.info("pipeline_done", total_frames=result.frame_count)
+</script>
+    </doc-code>
+  </doc-claim>
+
+  <doc-claim>
+    <p>Test mới: JSON-only trả 0 ảnh, đúng số frame.</p>
+    <doc-code title="tests/test_pipeline.py · sketch" lang="py">
+<script type="text/plain">
+def test_json_only_run_returns_no_buffered_frames(tmp_path) -> None:
+    video_path = str(tmp_path / "test.mp4")
+    frame_json = str(tmp_path / "frames.json")
+    _make_test_video(video_path, frame_count=4)
+    pipeline = Pipeline(_make_config(video_path, output_json=frame_json))
+
+    result = pipeline.run(video_path)
+
+    assert result.frame_count == 4
+    assert result.frames == []
+    with open(frame_json, encoding="utf-8") as fh:
+        assert len(json.load(fh)) == 4
+</script>
+    </doc-code>
+    <doc-note tone="info">Hai test render cũ đặt <code>output_video</code> và đọc <code>result.frames</code>.</doc-note>
+  </doc-claim>
+</doc-claim>
+
+<!-- ═════ 3 · Logging ═════ -->
+<doc-claim>
+  <p>Khi khởi động, log cho biết device, half và provider.</p>
+  <doc-mock frame="terminal" title="python main.py" w="470" caption="Một dòng log, ngay sau khi nạp model."><template><span class="dim">{"event": "pipeline_device",</span>
+<span class="dim"> "device": "0", "half":</span> <span class="g">true</span><span class="dim">,</span>
+<span class="dim"> "cuda_available":</span> <span class="g">true</span><span class="dim">,</span>
+<span class="dim"> "onnx_providers":</span> [<span class="g">"CUDAExecutionProvider"</span>, "CPUExecutionProvider"]}</template></doc-mock>
+
+  <doc-claim>
+    <p><code>Pipeline.__init__</code> chọn file FP16 rồi log một lần.</p>
+    <doc-calls title="Khởi động Pipeline" caption="Dòng xanh là mới; Tracker nhận thêm half.">
+<script type="text/plain">
+~ Pipeline.__init__(config)                    @ src/serve/pipeline/pipeline.py:36
++   **fp16_model_path**(player_detector)       @ src/serve/pipeline/gpu_utils.py:40
+~   Tracker(model_name, device, half)          @ src/serve/pipeline/pipeline.py:52
+~   BallDetector(model_name, device, half)     @ src/serve/pipeline/pipeline.py:70
++   **execution_summary**(device, half)        @ src/serve/pipeline/gpu_utils.py:40
++   _log.info("pipeline_device", ...)          @ src/serve/pipeline/pipeline.py:102
+</script>
+    </doc-calls>
+  </doc-claim>
+</doc-claim>
+
+<!-- ═════ aux ═════ -->
+<doc-claim aux="scope">
+  <p>Không thay đổi: weights, đường MJPEG, thread decode.</p>
+  <ul>
+    <li><code>Pipeline.process_frame()</code> và <code>app.py</code> stream từng frame.</li>
+    <li>Weights ONNX FP32 giữ nguyên; file FP16 là bản sao trong <code>models/</code>.</li>
+    <li>Không export TensorRT; không batch ball detector.</li>
+    <li><code>ThreadPoolExecutor</code> decode giữ nguyên: decode chỉ 2.7 ms.</li>
+  </ul>
+</doc-claim>
+
+</doc-plan>
+</main>
+</body>
+</html>

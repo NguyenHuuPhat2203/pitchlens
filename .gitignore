@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .venv/
+.env
 data/
 models/
 *.mp4
@@ -9,3 +10,11 @@ models/
 dist/
 *.egg-info/
 *.pt
+.cache/
+weights/
+runs/
+drive_checkpoints/
+research/**/frames.json
+research/**/timeline.json
+promo/build/
+research/**/results/sample_*_[0-9][0-9][0-9][0-9].jpg

@@ -1,0 +1,98 @@
+project:
+  title: "Automatic pitch calibration (replace 4-click homography)"
+  question: >
+    Can the pipeline estimate the image -> pitch homography by itself on every frame of a
+    broadcast/tactical video, accurately and stably enough for player positions and speeds,
+    instead of 4 manual corner clicks (impossible on data/sample.mp4, which shows no corner)?
+  status: active
+  started: "2026-10-25"
+  domain: "sports field registration / camera calibration"
+
+literature:
+  survey: literature/survey.md
+  key_papers:
+    - {id: chu2022, title: "KpSFR + TS-WorldCup", relevance: "temporal benchmark with GT homographies, metric in metres"}
+    - {id: gutierrez2024, title: "NBJW / PnLCalib", relevance: "SOTA with public weights; GPL-2.0, reference only"}
+    - {id: falaleev2024, title: "Sportlight, SoccerNet 2023 winner", relevance: "many correspondences + voting"}
+    - {id: magera2024, title: "SoccerNet-Calibration protocol", relevance: "multi-view training/eval data"}
+    - {id: roboflow2024, title: "YOLOv8-pose 32 keypoints", relevance: "same stack as our detectors"}
+  gaps:
+    - "Benchmarks score single frames; speed needs frame-to-frame stability, rarely reported"
+    - "Public SOTA code is GPL / unlicensed: cannot ship it here"
+    - "Our footage is a high end-on view behind a goal; WC14 / TS-WorldCup / Roboflow data are mostly side views"
+
+evaluation:
+  primary_metric: "Acc@1m: share of ALL frames with a homography whose mean projection error < 1 m"
+  secondary:
+    - "mean / median projection error (m) over registered frames"
+    - "completeness (share of frames with a homography)"
+    - "displacement error (m) between consecutive annotated frames (speed-relevant jitter)"
+    - "latency per frame on the RTX 3050 Ti Laptop"
+  datasets:
+    tswc_test: "TS-WorldCup test, 10 videos / 887 frames, GT homographies"
+    wc14_test: "WorldCup 2014 test, 186 frames, GT homographies"
+    sample: "data/sample.mp4 (target domain): gt-sample/gt_dense.json, 425 frames (dev 0-239, test 1320-1504)"
+  definition: >
+    Pixels sampled (seed 0, 2,500) from the image area that shows the pitch under GT; ground
+    distance between predicted and GT projections, kept even when the prediction leaves the
+    pitch. Template 115 x 74 yd = 105.16 x 67.67 m.
+
+hypotheses:
+  - id: H1
+    statement: "Off-the-shelf SoccerNet-trained registration (PnLCalib SV, PnL refinement) works zero-shot: TS-WC test completeness >= 90 % and mean error <= 1.0 m, and it registers the end-on sample.mp4 frames."
+    status: refuted  # TS-WC 0.34 m mean, 99.9 % Acc@1m, but 0/11 sample frames registered (E1)
+    priority: high
+  - id: H2
+    statement: "Roboflow's YOLOv8x-pose 32-kp model (trained on ~300 side-view images) is clearly worse: TS-WC mean error >= 1.5x H1, and it fails on end-on sample.mp4 frames."
+    status: supported  # TS-WC median 8.7 m, Acc@1m 0 %, wrong on every sample frame (E1)
+    priority: high
+  - id: H3
+    statement: "A YOLO26s-pose model trained only on SoccerNet-Calibration (32 kp from fitted homographies) matches PnLCalib zero-shot on TS-WC (Acc@1m within 10 points, median <= 1.3x), registers >= 6/8 clean end-on sample frames, at >= 5x lower latency."
+    status: refuted  # Colab, stopped at epoch 26/40 (patience on box+pose fitness); best (ep 16): TS-WC 97.3 % / median 0.448 m (bar 0.395), sample 0/8 with 6 WRONG answers, 31.6 ms (12x)
+    priority: medium  # side views: good initializer if gated (E6)
+  - id: H5
+    statement: "Training-free line search registers end-on sample test frames: Acc@1m >= 90 % and wrong answers <= 5 %."
+    status: refuted  # 83.8 % (6/37 refused), 0 % wrong, median 0.23 m; side views mostly refused
+    priority: high
+  - id: H4
+    statement: "From a correct first homography, ORB camera motion + line alignment tracks with sample Acc@1m >= 95 %, median <= 0.30 m, 12-frame displacement <= 0.15 m, and TS-WC Acc@1m >= 80 %."
+    status: refuted  # sample: 100 %, 0.25 m, 0.064 m (all pass); TS-WC 51.7 % (sub-sampled frames, partial views)
+    priority: high
+  - id: H6
+    statement: "The shipped AutoCalibrator, cold start on all 1,505 sample.mp4 frames: GT Acc@1m >= 95 %, median <= 0.30 m, 12-frame displacement <= 0.10 m, homography on >= 95 % of frames, tracking <= 30 ms/frame."
+    status: supported_except_latency  # 100 %, 0.235 m, 0.029 m, 100 % frames; 36 ms/frame with the CPU shared (E5 run 3)
+    priority: high
+
+experiments:
+  runs:
+    - {run_id: e1_pnlcalib_sv, hypothesis: H1, tswc_acc_1m: 0.9989, tswc_mean_m: 0.342, tswc_median_m: 0.304, tswc_disp_m: 0.227, wc14_acc_1m: 0.7581, sample_registered: "0/11", latency_ms: 383}
+    - {run_id: e1_roboflow_yolov8x, hypothesis: H2, tswc_acc_1m: 0.0, tswc_mean_m: 54.0, tswc_median_m: 8.71, wc14_acc_1m: 0.0054, sample_registered: "11/11 wrong", latency_ms: 45}
+    - {run_id: e3_full, hypothesis: H4, sample_acc_1m: 1.0, sample_median_m: 0.254, disp12_median_m: 0.064, tswc_acc_1m: 0.5165}
+    - {run_id: e3_lines_only, hypothesis: H4-ablation, sample_acc_1m: 1.0, sample_median_m: 0.222, disp12_median_m: 0.012, tswc_acc_1m: 0.1893}
+    - {run_id: e3_orb_only, hypothesis: H4-ablation, sample_acc_1m: 0.3286, sample_median_m: 1.09, disp12_median_m: 0.154, tswc_acc_1m: 0.39}
+    - {run_id: e4_line_search, hypothesis: H5, sample_test_answered: "31/37", sample_test_wrong: 0, sample_test_median_m: 0.227, wc14_answered: "13/93", latency_s: "6-12"}
+    - {run_id: e5_protocol_code, hypothesis: H6, frames_with_h: 1.0, gt_acc_1m: 1.0, gt_median_m: 0.268, gt_max_m: 0.474, disp12_median_m: 0.039, track_ms: 37.1, search_s: 12.8}
+    - {run_id: e5_thickness_nms, hypothesis: H6, frames_with_h: 0.9668, gt_acc_1m: 0.8824, gt_median_m: 0.268, disp12_median_m: 0.025, note: "across-line NMS lost frame 0; reverted"}
+    - {run_id: e5_shipped, hypothesis: H6, frames_with_h: 1.0, gt_acc_1m: 1.0, gt_median_m: 0.235, gt_max_m: 0.356, disp12_median_m: 0.029, disp12_p95_m: 0.093, track_ms: 36.1, search_s: 6.5}
+    - {run_id: e2_best_ep16, hypothesis: H3, tswc_acc_1m: 0.9729, tswc_median_m: 0.448, wc14_acc_1m: 0.5269, sn_test_acc_1m: 0.752, sample_8_lt_1m: 0, sample_dense_acc_1m: 0.0, latency_ms: 31.6}
+    - {run_id: e2_last_ep26, hypothesis: H3-exploratory, tswc_acc_1m: 0.9729, tswc_median_m: 0.395, wc14_acc_1m: 0.5054, sn_test_acc_1m: 0.7621, sample_8_lt_1m: 0, sample_dense_acc_1m: 0.0, latency_ms: 30.8}
+
+trajectory:
+  - {run_id: e1_pnlcalib_sv, metric: "sample clean frames registered", value: 0, of: 8}
+  - {run_id: e1_roboflow_yolov8x, metric: "sample clean frames registered", value: 0, of: 8}
+  - {run_id: e3_lines_only, metric: "sample Acc@1m (tracking from GT init)", value: 1.0}
+  - {run_id: e4_line_search, metric: "sample test frames answered, 0 wrong", value: 31, of: 37}
+  - {run_id: e5_shipped, metric: "sample Acc@1m, cold start, all frames", value: 1.0}
+  - {run_id: e2_best_ep16, metric: "sample clean frames registered (< 1 m)", value: 0, of: 8}
+
+outer_loop:
+  cycle: 2
+  last_direction: "E2 model: side views yes (TS-WC 97 %), end-on no (confident wrong answers). Next: E6, gated model fallback when the line search refuses"
+
+workspace:
+  findings: findings.md
+  log: research-log.md
+  literature: literature/
+  experiments: experiments/
+  tools: tools/
+  to_human: to_human/

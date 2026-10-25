@@ -1,0 +1,33 @@
+{
+  "decode": {
+    "count": 1506,
+    "median_ms": 2.3348,
+    "p95_ms": 2.970925
+  },
+  "ball_detect": {
+    "count": 753,
+    "median_ms": 21.1623,
+    "p95_ms": 28.09204
+  },
+  "player_track": {
+    "count": 1505,
+    "median_ms": 26.5499,
+    "p95_ms": 29.88946
+  },
+  "json_write": {
+    "count": 1,
+    "median_ms": 1142.8026,
+    "p95_ms": 1142.8026
+  },
+  "timeline_build": {
+    "count": 1,
+    "median_ms": 18.2088,
+    "p95_ms": 18.2088
+  },
+  "timeline_write": {
+    "count": 1,
+    "median_ms": 1.8384,
+    "p95_ms": 1.8384
+  },
+  "total_ms": 56237.481601
+}

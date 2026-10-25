@@ -1,0 +1,274 @@
+{
+ "0": {
+  "H": [
+   [
+    0.001721552068997914,
+    -0.09647301285092479,
+    58.72622705619442
+   ],
+   [
+    0.07600909292721926,
+    0.054312278195826076,
+    -17.193953474327834
+   ],
+   [
+    3.2092442250735817e-06,
+    0.0015527216894611763,
+    1.0
+   ]
+  ],
+  "rms_px": 1.859,
+  "max_px": 5.983,
+  "n": 690,
+  "lines": [
+   "Big rect. left bottom",
+   "Big rect. left main",
+   "Big rect. left top",
+   "Middle line",
+   "Side line bottom",
+   "Side line left",
+   "Side line top",
+   "Small rect. left bottom",
+   "Small rect. left main",
+   "Small rect. left top"
+  ]
+ },
+ "60": {
+  "H": [
+   [
+    0.006651266817731896,
+    -0.09956923239028549,
+    57.95279551028788
+   ],
+   [
+    0.07953480725143211,
+    0.0594525704068984,
+    -23.928069443490777
+   ],
+   [
+    3.30693025071887e-05,
+    0.0016352274065143417,
+    1.0
+   ]
+  ],
+  "rms_px": 2.099,
+  "max_px": 7.86,
+  "n": 787,
+  "lines": [
+   "Big rect. left bottom",
+   "Big rect. left main",
+   "Big rect. left top",
+   "Middle line",
+   "Side line bottom",
+   "Side line left",
+   "Side line top",
+   "Small rect. left bottom",
+   "Small rect. left main",
+   "Small rect. left top"
+  ]
+ },
+ "120": {
+  "H": [
+   [
+    0.007014359942584449,
+    -0.09950653270189865,
+    57.66275763457447
+   ],
+   [
+    0.07947936078156345,
+    0.059725808411475255,
+    -24.327902209098205
+   ],
+   [
+    3.300323448601181e-05,
+    0.0016367770909778835,
+    1.0
+   ]
+  ],
+  "rms_px": 2.126,
+  "max_px": 6.223,
+  "n": 779,
+  "lines": [
+   "Big rect. left bottom",
+   "Big rect. left main",
+   "Big rect. left top",
+   "Middle line",
+   "Side line bottom",
+   "Side line left",
+   "Side line top",
+   "Small rect. left bottom",
+   "Small rect. left main",
+   "Small rect. left top"
+  ]
+ },
+ "180": {
+  "H": [
+   [
+    0.007657987202583736,
+    -0.10583233534548363,
+    64.73073568687434
+   ],
+   [
+    0.0853451186329912,
+    0.06557973886460156,
+    -28.63179906796284
+   ],
+   [
+    3.684442006892987e-05,
+    0.001806103138385377,
+    1.0
+   ]
+  ],
+  "rms_px": 2.173,
+  "max_px": 6.61,
+  "n": 798,
+  "lines": [
+   "Big rect. left bottom",
+   "Big rect. left main",
+   "Big rect. left top",
+   "Middle line",
+   "Side line bottom",
+   "Side line left",
+   "Side line top",
+   "Small rect. left bottom",
+   "Small rect. left main",
+   "Small rect. left top"
+  ]
+ },
+ "230": {
+  "H": [
+   [
+    0.0077052500449200974,
+    -0.1058761572158139,
+    64.75026312314021
+   ],
+   [
+    0.08543530608847522,
+    0.06567009850763872,
+    -28.68517402023259
+   ],
+   [
+    3.734123147471937e-05,
+    0.0018089859724457525,
+    1.0
+   ]
+  ],
+  "rms_px": 2.216,
+  "max_px": 6.621,
+  "n": 805,
+  "lines": [
+   "Big rect. left bottom",
+   "Big rect. left main",
+   "Big rect. left top",
+   "Middle line",
+   "Side line bottom",
+   "Side line left",
+   "Side line top",
+   "Small rect. left bottom",
+   "Small rect. left main",
+   "Small rect. left top"
+  ]
+ },
+ "1330": {
+  "H": [
+   [
+    -0.005877092772552892,
+    -0.11374455763930269,
+    73.50323616242966
+   ],
+   [
+    0.0898781878596195,
+    0.060782261757609035,
+    -16.97733685939408
+   ],
+   [
+    -1.0865084960592252e-05,
+    0.0019024772837153974,
+    1.0
+   ]
+  ],
+  "rms_px": 1.873,
+  "max_px": 6.516,
+  "n": 795,
+  "lines": [
+   "Big rect. left bottom",
+   "Big rect. left main",
+   "Big rect. left top",
+   "Middle line",
+   "Side line bottom",
+   "Side line left",
+   "Side line top",
+   "Small rect. left bottom",
+   "Small rect. left main",
+   "Small rect. left top"
+  ]
+ },
+ "1400": {
+  "H": [
+   [
+    -0.005711718132454009,
+    -0.11129967012619686,
+    70.8432165258588
+   ],
+   [
+    0.08784139957708527,
+    0.05878830064257032,
+    -15.807579914813138
+   ],
+   [
+    -1.1241062620630801e-05,
+    0.0018444951182649974,
+    1.0
+   ]
+  ],
+  "rms_px": 2.001,
+  "max_px": 6.898,
+  "n": 745,
+  "lines": [
+   "Big rect. left bottom",
+   "Big rect. left main",
+   "Big rect. left top",
+   "Middle line",
+   "Side line bottom",
+   "Side line left",
+   "Side line top",
+   "Small rect. left bottom",
+   "Small rect. left main",
+   "Small rect. left top"
+  ]
+ },
+ "1480": {
+  "H": [
+   [
+    -0.005735900834857945,
+    -0.11127328283809095,
+    70.81821398943185
+   ],
+   [
+    0.08769479956000979,
+    0.058855713782784744,
+    -15.811483742919515
+   ],
+   [
+    -1.3529238923093057e-05,
+    0.001844648211360784,
+    1.0
+   ]
+  ],
+  "rms_px": 1.913,
+  "max_px": 6.669,
+  "n": 830,
+  "lines": [
+   "Big rect. left bottom",
+   "Big rect. left main",
+   "Big rect. left top",
+   "Middle line",
+   "Side line bottom",
+   "Side line left",
+   "Side line top",
+   "Small rect. left bottom",
+   "Small rect. left main",
+   "Small rect. left top"
+  ]
+ }
+}

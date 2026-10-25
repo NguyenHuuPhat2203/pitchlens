@@ -3,8 +3,8 @@
 import numpy as np
 from ultralytics import YOLO
 
+from src.backbone.gpu_utils import safe_predict
 from src.model.detection import Detection
-from src.serve.pipeline.gpu_utils import safe_predict
 
 
 class Detector:
@@ -44,8 +44,6 @@ class Detector:
             verbose=False,
         )
         detections: list[Detection] = []
-        if results is None:
-            return detections
         for result in results:
             if result.boxes is None:
                 continue

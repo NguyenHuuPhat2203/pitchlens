@@ -1,0 +1,77 @@
+{
+  "960x960": {
+    "provider": "TensorrtExecutionProvider",
+    "setup_s": 7.4,
+    "input": [
+      960,
+      960
+    ],
+    "forward_ms": 6.59,
+    "idf1": 62.13,
+    "mota": 60.39,
+    "id_switches": 107,
+    "fp": 3355,
+    "fn": 720,
+    "track_ms": 15.03
+  },
+  "544x960": {
+    "provider": "TensorrtExecutionProvider",
+    "setup_s": 359.2,
+    "input": [
+      544,
+      960
+    ],
+    "forward_ms": 4.85,
+    "idf1": 63.03,
+    "mota": 65.99,
+    "id_switches": 125,
+    "fp": 2655,
+    "fn": 810,
+    "track_ms": 13.66
+  },
+  "768x768": {
+    "provider": "TensorrtExecutionProvider",
+    "setup_s": 239.8,
+    "input": [
+      768,
+      768
+    ],
+    "forward_ms": 4.56,
+    "idf1": 56.21,
+    "mota": 64.75,
+    "id_switches": 140,
+    "fp": 2636,
+    "fn": 945,
+    "track_ms": 12.88
+  },
+  "448x768": {
+    "provider": "TensorrtExecutionProvider",
+    "setup_s": 235.8,
+    "input": [
+      448,
+      768
+    ],
+    "forward_ms": 3.84,
+    "idf1": 58.89,
+    "mota": 69.79,
+    "id_switches": 138,
+    "fp": 1994,
+    "fn": 1057,
+    "track_ms": 12.4
+  },
+  "384x640": {
+    "provider": "TensorrtExecutionProvider",
+    "setup_s": 238.9,
+    "input": [
+      384,
+      640
+    ],
+    "forward_ms": 3.67,
+    "idf1": 52.49,
+    "mota": 70.13,
+    "id_switches": 162,
+    "fp": 1636,
+    "fn": 1355,
+    "track_ms": 12.23
+  }
+}

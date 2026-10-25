@@ -1,0 +1,34 @@
+[
+  {
+    "variant": "S",
+    "tag": "run1_S",
+    "frames": 1505,
+    "ms_per_frame": 32.04,
+    "player_track_ms": 26.5499,
+    "ball_detect_ms": 21.1623
+  },
+  {
+    "variant": "V",
+    "tag": "run2_V",
+    "frames": 1505,
+    "ms_per_frame": 28.57,
+    "player_track_ms": 23.3082,
+    "ball_detect_ms": 21.3618
+  },
+  {
+    "variant": "S",
+    "tag": "run3_S",
+    "frames": 1505,
+    "ms_per_frame": 31.84,
+    "player_track_ms": 26.5875,
+    "ball_detect_ms": 21.5454
+  },
+  {
+    "variant": "V",
+    "tag": "run4_V",
+    "frames": 1505,
+    "ms_per_frame": 30.01,
+    "player_track_ms": 23.6875,
+    "ball_detect_ms": 22.5741
+  }
+]

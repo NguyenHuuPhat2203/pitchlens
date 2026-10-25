@@ -6,56 +6,60 @@ from src.model.detection import Detection
 from src.serve.pipeline.ball_tracker import BallTracker
 
 
-def _make_detection(x: float, y: float, w: float = 10, h: float = 10) -> Detection:
-    """Create a synthetic ball detection at (x, y)."""
-    return Detection(
-        bbox=(x, y, x + w, y + h),
-        class_id=32,
-        confidence=0.9,
-    )
+def _det(x: float, y: float, w: float = 10, h: float = 10, conf: float = 0.9) -> Detection:
+    """Create a synthetic ball detection with top-left corner (x, y)."""
+    return Detection(bbox=(x, y, x + w, y + h), class_id=0, confidence=conf)
 
 
-class TestBallTracker:
-    """Unit tests for the Kalman-based ball tracker."""
+def test_initial_state_is_lost() -> None:
+    assert BallTracker().update([]).state == "lost"
 
-    def test_initial_state_is_lost(self) -> None:
-        """Before any detection, ball state is 'lost'."""
-        tracker = BallTracker()
-        ball = tracker.update(None)
-        assert ball.state == "lost"
 
-    def test_state_becomes_in_play_after_detection(self) -> None:
-        """After receiving a detection, state transitions to 'in_play'."""
-        tracker = BallTracker()
-        det = _make_detection(100, 100)
-        ball = tracker.update(det)
-        assert ball.state == "in_play"
+def test_first_detection_starts_track_at_its_centre() -> None:
+    ball = BallTracker().update([_det(100, 100, 20, 20)])
+    assert ball.state == "in_play"
+    assert ball.centroid == pytest.approx((110.0, 110.0))
 
-    def test_centroid_is_computed(self) -> None:
-        """BallTrack centroid is the center of the bbox."""
-        tracker = BallTracker()
-        det = _make_detection(100, 100, 20, 20)
-        ball = tracker.update(det)
-        assert ball.centroid == pytest.approx((110.0, 110.0))
 
-    def test_prediction_during_missing_detection(self) -> None:
-        """Kalman filter predicts position when detection is missing."""
-        tracker = BallTracker()
-        # Feed a few detections so the filter has a velocity estimate.
-        tracker.update(_make_detection(100, 100))
-        tracker.update(_make_detection(110, 100))  # moving right
-        tracker.update(_make_detection(120, 100))  # still moving right
-        # Now miss one.
-        ball = tracker.update(None)
-        # Should still be in_play with a predicted position.
-        assert ball.state == "in_play"
-        # Kalman filter predicts forward motion beyond the last seen x.
-        assert ball.centroid[0] > 120
+def test_prediction_during_missing_detection() -> None:
+    tracker = BallTracker()
+    for x in (100, 110, 120):
+        tracker.update([_det(x, 100)])
+    ball = tracker.update([])
+    assert ball.state == "in_play"
+    assert ball.centroid[0] > 125  # last seen centre was 125
 
-    def test_state_returns_to_lost_after_prolonged_absence(self) -> None:
-        """After too many consecutive misses, state goes back to 'lost'."""
-        tracker = BallTracker(max_lost_frames=3)
-        tracker.update(_make_detection(100, 100))
-        for _ in range(4):
-            ball = tracker.update(None)
-        assert ball.state == "lost"
+
+def test_state_returns_to_lost_after_prolonged_absence() -> None:
+    tracker = BallTracker(max_lost_frames=3)
+    tracker.update([_det(100, 100)])
+    for _ in range(4):
+        ball = tracker.update([])
+    assert ball.state == "lost"
+
+
+def test_far_false_positive_is_ignored_even_with_higher_confidence() -> None:
+    tracker = BallTracker(gate_px=50)
+    for x in (100, 104, 108):
+        tracker.update([_det(x, 100)])
+    ball = tracker.update([_det(600, 400, conf=0.99), _det(112, 100, conf=0.4)])
+    assert ball.centroid[0] == pytest.approx(117, abs=3)
+    assert ball.centroid[1] == pytest.approx(105, abs=3)
+
+
+def test_lone_far_detection_counts_as_a_miss() -> None:
+    tracker = BallTracker(max_lost_frames=1, gate_px=50)
+    tracker.update([_det(100, 100)])
+    tracker.update([_det(600, 400)])
+    assert tracker.update([_det(600, 400)]).state == "lost"
+
+
+def test_reacquires_at_new_detection_after_loss() -> None:
+    tracker = BallTracker(max_lost_frames=2, gate_px=50)
+    for x in (100, 110, 120):
+        tracker.update([_det(x, 100)])
+    for _ in range(10):
+        tracker.update([])
+    ball = tracker.update([_det(600, 400)])
+    assert ball.state == "in_play"
+    assert ball.centroid == pytest.approx((605.0, 405.0))

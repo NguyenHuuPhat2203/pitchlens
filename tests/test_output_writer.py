@@ -4,10 +4,8 @@ import json
 import tempfile
 from pathlib import Path
 
-import cv2
-import numpy as np
-
 from src.model.frame import ProcessedFrame
+from src.model.tactical_event import TacticalEvent
 from src.model.track import PlayerTrack
 from src.serve.artifacts.output_writer import OutputWriter
 
@@ -36,20 +34,6 @@ def _make_processed_frames(count: int = 3) -> list[ProcessedFrame]:
 
 class TestOutputWriter:
     """Unit tests for OutputWriter."""
-
-    def test_write_video_creates_playable_file(self) -> None:
-        """write_video creates a valid .mp4 with the correct frame count."""
-        with tempfile.TemporaryDirectory() as tmp:
-            output_path = str(Path(tmp) / "output.mp4")
-            frames = [np.zeros((240, 320, 3), dtype=np.uint8) for _ in range(5)]
-            writer = OutputWriter()
-            writer.write_video(frames, output_path, fps=25.0)
-
-            assert Path(output_path).exists()
-            cap = cv2.VideoCapture(output_path)
-            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            cap.release()
-            assert frame_count == 5
 
     def test_write_json_uses_item_schema(self) -> None:
         """write_json outputs array of {status, result}"""
@@ -82,3 +66,10 @@ class TestOutputWriter:
             assert frame_data["frame_number"] == 0
             assert len(frame_data["players"]) == 1
             assert frame_data["players"][0]["track_id"] == 1
+
+
+def test_write_timeline_preserves_event_contract(tmp_path) -> None:
+    output = tmp_path / "timeline.json"
+    event = TacticalEvent(10, 12, "pass", 4, "A", 0.7, None, "heuristic")
+    OutputWriter().write_timeline([event], str(output))
+    assert json.loads(output.read_text(encoding="utf-8"))[0]["source"] == "heuristic"
