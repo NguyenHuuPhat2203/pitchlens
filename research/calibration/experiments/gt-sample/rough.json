@@ -1,0 +1,24 @@
+{
+  "_convention": "Camera behind the LEFT goal (x = 0) looking along +x: image left = far touchline (y = 0). Points are rough (+/- 5 px), read from gridded full-resolution frames; null breaks a polyline over an occlusion.",
+  "0": {
+    "Side line left": [[2, 613.5], [540, 616], null, [790, 622], [1080, 632]],
+    "Big rect. left main": [[268, 349.5], [640, 354], [1072, 361]],
+    "Big rect. left top": [[259, 356], [146, 606]],
+    "Big rect. left bottom": [[1081, 367], [1158, 545]],
+    "Small rect. left main": [[456, 515], [874, 521.5]],
+    "Small rect. left top": [[448, 521], [431, 607]],
+    "Small rect. left bottom": [[882, 528], [897, 618]],
+    "Circle left": [[525, 349], [570, 330], [620, 316], [665, 311], [712, 315], [760, 329], [806, 352]],
+    "Middle line": [[215, 37], [540, 41], null, [802, 44], [1135, 44]],
+    "Circle central": [[551, 52], [575, 80], [620, 96], [670, 101], [722, 96], [767, 80], [792, 55]],
+    "Side line top": [[218, 6], [150, 100], [75, 200], [8, 296]],
+    "Side line bottom": [[1131, 6], [1190, 100], [1265, 200]]
+  },
+  "60": {"propagate_from": "0"},
+  "120": {"propagate_from": "60"},
+  "180": {"propagate_from": "120"},
+  "230": {"propagate_from": "180"},
+  "1330": {"propagate_from": "230"},
+  "1400": {"propagate_from": "1330"},
+  "1480": {"propagate_from": "1400"}
+}

@@ -29,9 +29,9 @@ shot_detector:
   accel_threshold: 800.0           # Minimum mean acceleration over 0.25 s (image px/s², uses the video's fps).
 
 calibration:
-  enabled: true                    # Pitch calibration + speed (4 clicks; only when display is on). Assumes a static camera.
+  enabled: true                    # Pitch calibration + speed, automatic per frame from the painted lines.
   speed_window: 12                 # Frames to smooth speed/direction over.
-  camera_dir: null                 # SynLoc camera model directory (null=manual clicks).
+  camera_dir: null                 # SynLoc camera model directory for a fixed known camera (null = automatic).
 
 timeline:
   enabled: true                         # Build offline tactical timeline.

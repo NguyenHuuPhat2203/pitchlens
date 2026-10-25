@@ -19,11 +19,15 @@ pip install -r requirements.txt
 python main.py
 ```
 
-1. Click 4 pitch corners on the first frame (or press Q to skip calibration).
-   The prompt only appears when `display: true`; headless runs skip it.
-   Speed assumes a static camera: the calibration is fitted once.
-2. Pipeline runs — annotated frames appear in an OpenCV window
-3. Press Q to quit
+1. Pipeline runs — annotated frames appear in an OpenCV window
+2. Press Q to quit
+
+Pitch calibration is automatic, also headless: the pitch is found from the painted
+lines (a few seconds of CPU at the start), then followed frame by frame, so speeds stay
+correct while the camera pans. Frames where the pitch cannot be read (close-ups, most
+side-on broadcast shots) get no speed. Details: `research/calibration/`.
+Calibration runs in a child process, so a script that builds a `Pipeline` needs
+the usual `if __name__ == "__main__":` guard on Windows (`main.py` has it).
 
 ### GPU acceleration
 
@@ -71,7 +75,7 @@ inside the project: `.cache/`, `weights/`, `runs/`, and `data/datasets/`.
 | Team classification (Lab colour k-means, grass masked) | Done |
 | Ball detection + Kalman tracking | Done |
 | Shot event detection | Done |
-| Pitch calibration (4-click, desktop only) | Done |
+| Pitch calibration (automatic, per frame, from the painted lines) | Done |
 | Direction arrows (always on) | Done |
 | Speed overlay (km/h, calibration only, foot point) | Done |
 | Annotated video output (.mp4) | Done |
@@ -141,6 +145,12 @@ Open `notebooks/football_tracker_training.ipynb` in Jupyter or Colab.
 Covers dataset download, MOT→YOLO conversion, player fine-tuning,
 ball detector training, and pipeline evaluation.
 
+Pitch keypoints for side-on views (research E2, SoccerNet labels):
+`notebooks/training/04_train_pitch_keypoints_sn32.ipynb` on Colab. Data and
+checkpoints go through a private Hugging Face dataset repo: put `HF_TOKEN` and
+`HF_REPO` in `.env` (see `.env.example`), then `python scripts/hf_sync.py data`
+once, and `python scripts/hf_sync.py pull runs` to fetch the trained weights.
+
 ### Offline tactical analysis
 
 For batch analysis, disable display and video output so the pipeline writes
@@ -192,8 +202,9 @@ shot_detector:
   accel_threshold: 800.0          # Image px/s² over 0.25 s (uses the video's fps)
 
 calibration:
-  enabled: true                   # Click-to-calibrate (display only)
+  enabled: true                   # Automatic, per frame, from the painted lines
   speed_window: 12                # Frames for speed smoothing
+  camera_dir: null                # SynLoc camera model of a fixed known camera instead
 ```
 
 ## Output Format

@@ -1,0 +1,48 @@
+{
+  "roboflow_yolov8x": {
+    "tswc": {
+      "frames": 887,
+      "acc_1m": 0.0,
+      "completeness": 0.9628,
+      "mean_err_m": 54.025,
+      "median_err_m": 8.71,
+      "p90_err_m": 26.152,
+      "mean_disp_m": 82.655,
+      "median_disp_m": 0.914
+    },
+    "wc14": {
+      "frames": 186,
+      "acc_1m": 0.0054,
+      "completeness": 0.9086,
+      "mean_err_m": 19.418,
+      "median_err_m": 6.598,
+      "p90_err_m": 27.027,
+      "mean_disp_m": null,
+      "median_disp_m": null
+    },
+    "latency_ms_median": 45.0
+  },
+  "pnlcalib_sv": {
+    "tswc": {
+      "frames": 887,
+      "acc_1m": 0.9989,
+      "completeness": 1.0,
+      "mean_err_m": 0.342,
+      "median_err_m": 0.304,
+      "p90_err_m": 0.54,
+      "mean_disp_m": 0.227,
+      "median_disp_m": 0.194
+    },
+    "wc14": {
+      "frames": 186,
+      "acc_1m": 0.7581,
+      "completeness": 0.9946,
+      "mean_err_m": 0.857,
+      "median_err_m": 0.571,
+      "p90_err_m": 1.669,
+      "mean_disp_m": null,
+      "median_disp_m": null
+    },
+    "latency_ms_median": 383.3
+  }
+}

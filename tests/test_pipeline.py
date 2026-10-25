@@ -1,6 +1,7 @@
 """Integration tests for the pipeline — end-to-end frame processing."""
 
 import json
+from concurrent.futures import Future
 from pathlib import Path
 
 import cv2
@@ -107,24 +108,6 @@ def test_json_only_batch_skips_renderer(tmp_path, monkeypatch) -> None:
     assert Path(timeline_json).exists()
 
 
-def test_calibration_prompt_keeps_frame_zero(tmp_path, monkeypatch) -> None:
-    """Skipping calibration with Q must not drop frame 0 or crash."""
-    video_path = str(tmp_path / "test.mp4")
-    frame_json = str(tmp_path / "frames.json")
-    _make_test_video(video_path, frame_count=3)
-    config = _make_config(video_path, frame_json, display=True)
-    config.calibration.enabled = True
-    for name in ("imshow", "setMouseCallback", "destroyAllWindows"):
-        monkeypatch.setattr(cv2, name, lambda *a, **k: None)
-    # Q at the calibration prompt (100 ms polling); no key during playback.
-    monkeypatch.setattr(cv2, "waitKey", lambda delay: ord("q") if delay == 100 else -1)
-
-    result = Pipeline(config).run(video_path)
-
-    assert result.frame_count == 3
-    assert [f["frame_number"] for f in _frames(frame_json)] == [0, 1, 2]
-
-
 def test_headless_run_never_opens_calibration_window(tmp_path, monkeypatch) -> None:
     video_path = str(tmp_path / "test.mp4")
     _make_test_video(video_path, frame_count=2)
@@ -152,6 +135,17 @@ def test_timestamps_and_video_follow_source_fps(tmp_path) -> None:
     cap.release()
 
 
+def _calibration(homography):
+    """Stub ``CalibrationProcess.submit``: frame n's image -> pitch homography, ready."""
+
+    def submit(image, frame_index):
+        future = Future()
+        future.set_result(homography(frame_index))
+        return future
+
+    return submit
+
+
 def test_speed_uses_elapsed_time_of_whole_window(tmp_path, monkeypatch) -> None:
     """10 px = 1 m; feet move 2 px/frame at 25 fps -> 5 m/s = 18 km/h."""
     video_path = str(tmp_path / "test.mp4")
@@ -161,8 +155,7 @@ def test_speed_uses_elapsed_time_of_whole_window(tmp_path, monkeypatch) -> None:
     config = _make_config(video_path, frame_json, output_video=out_path)
     config.calibration.enabled = True
     pipeline = Pipeline(config)
-    pts = np.array([[0, 0], [1050, 0], [1050, 680], [0, 680]], dtype=np.float32)
-    pipeline._calibrator.fit(pts, pts / 10)
+    pipeline._calibrator.submit = _calibration(lambda n: np.diag([0.1, 0.1, 1.0]))  # 10 px = 1 m
     pipeline._tracker.track = _FrameCounter(_walking_player)
     labels_seen: list[str] = []
     render = pipeline._renderer.render_tracks
@@ -178,6 +171,28 @@ def test_speed_uses_elapsed_time_of_whole_window(tmp_path, monkeypatch) -> None:
     speeds = [f["players"][0]["speed_kmh"] for f in _frames(frame_json)[1:]]
     assert speeds == pytest.approx([18.0] * len(speeds), abs=0.2)
     assert labels_seen[-1] == "#1 18km/h"
+
+
+def test_speed_uses_each_frames_own_calibration_when_the_camera_pans(tmp_path) -> None:
+    """The picture slides 3 px/frame; the player stands still on the pitch: 0 km/h."""
+    video_path = str(tmp_path / "test.mp4")
+    frame_json = str(tmp_path / "frames.json")
+    _make_test_video(video_path, frame_count=20)
+    config = _make_config(video_path, frame_json)
+    config.calibration.enabled = True
+    pipeline = Pipeline(config)
+    # Frame n's image -> pitch homography undoes the slide (10 px = 1 m).
+    pipeline._calibrator.submit = _calibration(
+        lambda n: np.diag([0.1, 0.1, 1.0]) @ np.array([[1, 0, -3.0 * n], [0, 1, 0], [0, 0, 1]])
+    )
+    pipeline._tracker.track = _FrameCounter(
+        lambda n: [PlayerTrack(1, (50.0 + 3 * n, 100.0, 70.0 + 3 * n, 160.0), 0, 0.9)]
+    )
+
+    pipeline.run(video_path)
+
+    speeds = [f["players"][0]["speed_kmh"] for f in _frames(frame_json)[1:]]
+    assert speeds == pytest.approx([0.0] * len(speeds), abs=0.1)
 
 
 def test_second_run_starts_fresh(tmp_path) -> None:

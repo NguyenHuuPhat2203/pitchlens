@@ -1,0 +1,14 @@
+{
+  "frames": 1505,
+  "with_homography": 1.0,
+  "gt_frames": 425,
+  "gt_acc_1m": 1.0,
+  "gt_median_err_m": 0.268,
+  "gt_max_err_m": 0.474,
+  "disp12_median_m": 0.039,
+  "disp12_p95_m": 0.175,
+  "track_ms_median": 37.1,
+  "searches": 1,
+  "search_ms_median": 12799,
+  "lost_frames": []
+}

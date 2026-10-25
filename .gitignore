@@ -16,3 +16,4 @@ drive_checkpoints/
 research/**/frames.json
 research/**/timeline.json
 promo/build/
+research/**/results/sample_*_[0-9][0-9][0-9][0-9].jpg
