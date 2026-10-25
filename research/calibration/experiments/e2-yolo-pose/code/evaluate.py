@@ -59,12 +59,13 @@ if __name__ == "__main__":
     run.OUT = OUT  # overlays of this checkpoint go to E2's results, not E1's
 
     ckpt = sys.argv[1]
+    tag = Path(ckpt).stem  # best / last: results side by side
     OUT.mkdir(parents=True, exist_ok=True)
     name = "yolo:" + ckpt
     res = evaluate(name)  # TS-WC test, WC14 test, sample overlays (E1 code and metrics)
     report = summary(res["rows"], res["latency_ms"])
-    (OUT / "rows_e2.json").write_text(json.dumps(res["rows"]))
+    (OUT / f"rows_e2_{tag}.json").write_text(json.dumps(res["rows"]))
     fits = sn_test_gt()
     report["sn_test"] = sn_test(YoloPitch(Path(ckpt).resolve(), SN_PITCH, imgsz=640), fits)
-    (OUT / "summary_e2.json").write_text(json.dumps(report, indent=2))
+    (OUT / f"summary_e2_{tag}.json").write_text(json.dumps(report, indent=2))
     print(json.dumps(report))

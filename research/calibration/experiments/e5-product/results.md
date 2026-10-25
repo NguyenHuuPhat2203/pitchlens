@@ -1,10 +1,10 @@
 # E5 results: the shipped AutoCalibrator on all of sample.mp4 (CONFIRMATORY for H6)
 
-Protocol: `protocol.md` (commit eeb9830). Cold start at frame 0, all 1,505 frames, every frame through `AutoCalibrator.update`. CPU shared with E2 training on the GPU (two dataloader workers) during every run.
+Protocol: `protocol.md` (commit cbf2169). Cold start at frame 0, all 1,505 frames, every frame through `AutoCalibrator.update`. CPU shared with E2 training on the GPU (two dataloader workers) during every run.
 
 | Run | Code | Frames with H | GT Acc@1m | GT median / max (m) | 12-frame disp. median / p95 (m) | Track ms (median) | Search |
 |---|---|---|---|---|---|---|---|
-| 1 | protocol commit eeb9830 | 100 % | 100 % | 0.268 / 0.474 | 0.039 / 0.175 | 37.1 | 1 x 12.8 s |
+| 1 | protocol commit cbf2169 | 100 % | 100 % | 0.268 / 0.474 | 0.039 / 0.175 | 37.1 | 1 x 12.8 s |
 | 2 | + thickness fix + across-line NMS | 96.7 % | 88.2 % | 0.268 / 0.452 | 0.025 / 0.156 | 36.4 | frame 0 refused, found at 50 |
 | **3 (shipped)** | + thickness fix only, line maps shared in search | **100 %** | **100 %** | **0.235 / 0.356** | **0.029 / 0.093** | 36.1 | 1 x 6.5 s |
 

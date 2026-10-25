@@ -1,0 +1,30 @@
+{
+  "tswc": {
+    "frames": 887,
+    "acc_1m": 0.9729,
+    "completeness": 1.0,
+    "mean_err_m": 0.452,
+    "median_err_m": 0.395,
+    "p90_err_m": 0.742,
+    "mean_disp_m": 0.167,
+    "median_disp_m": 0.136
+  },
+  "wc14": {
+    "frames": 186,
+    "acc_1m": 0.5054,
+    "completeness": 0.9839,
+    "mean_err_m": 18.218,
+    "median_err_m": 0.936,
+    "p90_err_m": 13.517,
+    "mean_disp_m": null,
+    "median_disp_m": null
+  },
+  "latency_ms_median": 30.8,
+  "sn_test": {
+    "images": 2081,
+    "completeness": 0.9274,
+    "acc_1m": 0.7621,
+    "median_err_m": 0.367,
+    "mean_err_m": 9.228
+  }
+}

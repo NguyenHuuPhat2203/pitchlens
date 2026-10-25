@@ -25,7 +25,14 @@
 
 ## 2026-10-26 - E5: shipped configuration, product integration
 - `src/serve/pipeline/auto_calibrator.py`: search at full resolution, tracking at 640 px with an analytic Jacobian, re-search on loss with backoff. Pipeline: calibration on its own thread each frame, speeds from pitch positions fixed when observed; 4-click UI, `Calibrator` and `SpeedEstimator` removed.
-- E5 (protocol eeb9830): 100 % frames, Acc@1m 100 %, median 0.268 m, 12-frame displacement 0.039 m, track 37 ms (CPU shared with training).
+- E5 (protocol cbf2169): 100 % frames, Acc@1m 100 %, median 0.268 m, 12-frame displacement 0.039 m, track 37 ms (CPU shared with training).
 - A rendered-pitch unit test exposed two bugs: thickness filter rejecting connected outlines (fixed), `_front` a no-op (fixed). An across-line NMS fix lost frame 0 (support under `min_support`) and was reverted. Final run: median 0.235 m, max 0.356 m, displacement 0.029 m, one 6.5 s search.
 - E2 restarted at the user's request on the GPU: batch 16 needed 5.2 GB on the 4 GB card (spilled to shared memory, ~10 s/iteration), now batch 8 with 2 workers: 3.0 GB, ~9 min/epoch.
 - User: no more local training. Local E2 run stopped at epoch 2 (deleted). E2 now runs on Colab: `notebooks/training/04_train_pitch_keypoints_sn32.ipynb`, protocol settings unchanged (batch 16 fits a T4); data and checkpoints through a private HF dataset repo (`scripts/hf_sync.py`, pattern from Research/3dgs-nvs); checkpoints pushed every 5 epochs so a dead session resumes from `last.pt`. `code/train.py` removed (the notebook replaces it).
+
+## 2026-10-26 - E2 results (Colab training)
+- Data pushed to HF (`LuxeFats/football-tracker`, private; zips byte-exact). Colab T4 ~5.1 min/epoch; stopped at 26/40 by patience: box mAP (one whole-view box) is noise in Ultralytics' box + pose fitness, best fitness at epoch 16.
+- best.pt (ep 16, confirmatory): TS-WC Acc@1m 97.3 %, median 0.448 m (bar 0.395); WC14 52.7 %; SoccerNet test 75.2 %; 31.6 ms (12x PnLCalib); sample.mp4 0/8 protocol frames, 0 % of 425 GT frames, mostly wrong answers. H3 refuted.
+- last.pt (ep 26, exploratory): TS-WC median 0.395 m, SoccerNet test 76.2 %; sample.mp4 still 0 %. Longer training helps side views only.
+- Protocol's sample criterion now judged with GT (`code/sample_gt.py`, error < 1 m) instead of overlays; overlays agree.
+- Next: E6, model as a gated fallback for side views when the line search refuses.

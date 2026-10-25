@@ -48,8 +48,8 @@ hypotheses:
     priority: high
   - id: H3
     statement: "A YOLO26s-pose model trained only on SoccerNet-Calibration (32 kp from fitted homographies) matches PnLCalib zero-shot on TS-WC (Acc@1m within 10 points, median <= 1.3x), registers >= 6/8 clean end-on sample frames, at >= 5x lower latency."
-    status: not_run  # dataset built (10,810 / 2,079); local GPU too small (4 GB) and busy: runs on Colab via notebooks/training/04_train_pitch_keypoints_sn32.ipynb
-    priority: medium  # the gap left after E5: side-on broadcast views
+    status: refuted  # Colab, stopped at epoch 26/40 (patience on box+pose fitness); best (ep 16): TS-WC 97.3 % / median 0.448 m (bar 0.395), sample 0/8 with 6 WRONG answers, 31.6 ms (12x)
+    priority: medium  # side views: good initializer if gated (E6)
   - id: H5
     statement: "Training-free line search registers end-on sample test frames: Acc@1m >= 90 % and wrong answers <= 5 %."
     status: refuted  # 83.8 % (6/37 refused), 0 % wrong, median 0.23 m; side views mostly refused
@@ -74,6 +74,8 @@ experiments:
     - {run_id: e5_protocol_code, hypothesis: H6, frames_with_h: 1.0, gt_acc_1m: 1.0, gt_median_m: 0.268, gt_max_m: 0.474, disp12_median_m: 0.039, track_ms: 37.1, search_s: 12.8}
     - {run_id: e5_thickness_nms, hypothesis: H6, frames_with_h: 0.9668, gt_acc_1m: 0.8824, gt_median_m: 0.268, disp12_median_m: 0.025, note: "across-line NMS lost frame 0; reverted"}
     - {run_id: e5_shipped, hypothesis: H6, frames_with_h: 1.0, gt_acc_1m: 1.0, gt_median_m: 0.235, gt_max_m: 0.356, disp12_median_m: 0.029, disp12_p95_m: 0.093, track_ms: 36.1, search_s: 6.5}
+    - {run_id: e2_best_ep16, hypothesis: H3, tswc_acc_1m: 0.9729, tswc_median_m: 0.448, wc14_acc_1m: 0.5269, sn_test_acc_1m: 0.752, sample_8_lt_1m: 0, sample_dense_acc_1m: 0.0, latency_ms: 31.6}
+    - {run_id: e2_last_ep26, hypothesis: H3-exploratory, tswc_acc_1m: 0.9729, tswc_median_m: 0.395, wc14_acc_1m: 0.5054, sn_test_acc_1m: 0.7621, sample_8_lt_1m: 0, sample_dense_acc_1m: 0.0, latency_ms: 30.8}
 
 trajectory:
   - {run_id: e1_pnlcalib_sv, metric: "sample clean frames registered", value: 0, of: 8}
@@ -81,10 +83,11 @@ trajectory:
   - {run_id: e3_lines_only, metric: "sample Acc@1m (tracking from GT init)", value: 1.0}
   - {run_id: e4_line_search, metric: "sample test frames answered, 0 wrong", value: 31, of: 37}
   - {run_id: e5_shipped, metric: "sample Acc@1m, cold start, all frames", value: 1.0}
+  - {run_id: e2_best_ep16, metric: "sample clean frames registered (< 1 m)", value: 0, of: 8}
 
 outer_loop:
-  cycle: 1
-  last_direction: "shipped line-based AutoCalibrator in the pipeline; next: E2 on Colab for side-on views"
+  cycle: 2
+  last_direction: "E2 model: side views yes (TS-WC 97 %), end-on no (confident wrong answers). Next: E6, gated model fallback when the line search refuses"
 
 workspace:
   findings: findings.md
